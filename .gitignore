@@ -1,0 +1,28 @@
+# Rust build output (shared by the whole workspace)
+/target/
+
+# Trunk's web/wasm build output
+gui/dist/
+
+# macOS
+.DS_Store
+
+# Xcode / iOS — user-specific and generated files
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/**/DerivedData/
+ios/**/build/
+ios/**/*.xcworkspace/xcshareddata/
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Rust build artifacts that `cargo make ios` copies in — regenerated every build
+ios/FifteenPuzzle/lib/
+ios/FifteenPuzzle/include/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.projectile

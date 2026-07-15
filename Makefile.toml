@@ -1,0 +1,103 @@
+[config]
+default_to_workspace = false
+
+[env]
+IOS_XCODE_PROJECT_DIR = { value = "ios/FifteenPuzzle", condition = { env_not_set = ["IOS_XCODE_PROJECT_DIR"] } }
+IOS_SCHEME = "FifteenPuzzle"
+IOS_BUNDLE_ID = "com.joelbuchheimmoore.FifteenPuzzle"
+
+[tasks.desktop]
+description = "Run the desktop build (debug)"
+command = "cargo"
+args = ["run", "-p", "fifteen-gui"]
+
+[tasks.desktop-release]
+description = "Build an optimized desktop binary"
+command = "cargo"
+args = ["build", "-p", "fifteen-gui", "--release"]
+
+[tasks.wasm-target]
+description = "Ensure the wasm32 target is installed"
+command = "rustup"
+args = ["target", "add", "wasm32-unknown-unknown"]
+
+[tasks.web]
+description = "Build for the web with trunk"
+dependencies = ["wasm-target"]
+install_crate = { crate_name = "trunk", binary = "trunk", test_arg = "--version" }
+script_runner = "@shell"
+script = '''
+cd gui
+trunk build --release
+'''
+
+[tasks.web-serve]
+dependencies = ["wasm-target"]
+description = "Serve the web build locally for testing"
+script_runner = "@shell"
+script = '''
+cd gui
+trunk serve --release
+'''
+
+[tasks.ios-target]
+description = "Ensure the iOS device target is installed"
+command = "rustup"
+args = ["target", "add", "aarch64-apple-ios"]
+
+[tasks.ios]
+description = "Build the iOS static lib and drop it + header into the Xcode project"
+dependencies = ["ios-target"]
+script_runner = "@shell"
+script = '''
+cargo build -p fifteen-gui --release --target aarch64-apple-ios --lib
+mkdir -p ${IOS_XCODE_PROJECT_DIR}/lib
+mkdir -p ${IOS_XCODE_PROJECT_DIR}/include
+cp target/aarch64-apple-ios/release/libfifteen_gui.a ${IOS_XCODE_PROJECT_DIR}/lib/
+echo "void bevy_main(void);" > ${IOS_XCODE_PROJECT_DIR}/include/fifteen_gui.h
+echo "Copied libfifteen_gui.a and header into ${IOS_XCODE_PROJECT_DIR}"
+'''
+
+[tasks.ios-run-device]
+description = "Build, install, and launch on a connected iPhone. Usage: IOS_DEVICE_ID=<id> cargo make ios-run-device"
+dependencies = ["ios"]
+script_runner = "@shell"
+script = '''
+xcodebuild build \
+    -project ${IOS_XCODE_PROJECT_DIR}/${IOS_SCHEME}.xcodeproj \
+    -scheme ${IOS_SCHEME} \
+    -destination "platform=iOS,id=${IOS_DEVICE_ID}" \
+    -derivedDataPath ${IOS_XCODE_PROJECT_DIR}/build
+
+xcrun devicectl device install app --device ${IOS_DEVICE_ID} \
+    ${IOS_XCODE_PROJECT_DIR}/build/Build/Products/Debug-iphoneos/${IOS_SCHEME}.app
+
+xcrun devicectl device process launch --device ${IOS_DEVICE_ID} --terminate-existing ${IOS_BUNDLE_ID}
+'''
+
+[tasks.android]
+description = "Placeholder — Android build needs cargo-apk/xbuild + NDK setup, not wired up yet"
+script_runner = "@shell"
+script = '''
+echo "TODO: wire up cargo-apk or xbuild here"
+'''
+
+[tasks.macos-bundle]
+dependencies = ["desktop-release"]
+description = "Build a macOS .app bundle"
+install_crate = { crate_name = "cargo-bundle", binary = "cargo-bundle", test_arg = "--help" }
+script_runner = "@shell"
+script = '''
+cd gui
+cargo bundle --release -f osx
+'''
+
+[tasks.macos-install]
+description = "Build and install the macOS app to /Applications"
+dependencies = ["macos-bundle"]
+script_runner = "@shell"
+script = '''
+rm -rf "/Applications/Fifteen Puzzle.app"
+cp -R "target/release/bundle/osx/Fifteen Puzzle.app" /Applications/
+echo "Installed to /Applications/Fifteen Puzzle.app"
+'''

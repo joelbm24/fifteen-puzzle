@@ -1,0 +1,18 @@
+edition = "2024"
+
+# Line width / general formatting
+max_width = 120
+use_small_heuristics = "Default"
+newline_style = "Unix"
+
+# Indentation
+hard_tabs = false
+tab_spaces = 4
+
+# Imports (only these are stable)
+reorder_imports = true
+reorder_modules = true
+
+# Functions
+fn_params_layout = "Tall"
+

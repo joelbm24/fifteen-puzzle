@@ -1,0 +1,18 @@
+[package]
+name = "fifteen"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = ["cli","gui"]
+
+[dependencies]
+getrandom = "0.4.3"
+rand = "0.10.2"
+thiserror = "2.0.18"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
