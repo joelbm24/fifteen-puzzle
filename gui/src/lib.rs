@@ -80,6 +80,12 @@ struct CancelConfirmButton;
 #[derive(Component)]
 struct ConfirmMenuRoot;
 
+#[cfg(target_os = "android")]
+#[bevy_main]
+fn main() {
+    run_app();
+}
+
 pub fn run_app() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -87,8 +93,10 @@ pub fn run_app() {
                 title: "Fifteen Puzzle".to_string(),
                 #[cfg(not(any(target_os = "ios", target_os = "android")))]
                 resolution: bevy::window::WindowResolution::new(700, 620),
-                #[cfg(any(target_os = "ios", target_os = "android"))]
+                #[cfg(target_os = "ios")]
                 mode: bevy::window::WindowMode::BorderlessFullscreen(bevy::window::MonitorSelection::Current),
+                #[cfg(target_os = "android")]
+                mode: bevy::window::WindowMode::BorderlessFullscreen(bevy::window::MonitorSelection::Primary),
                 ..default()
             }),
             ..default()
@@ -126,7 +134,11 @@ pub extern "C" fn bevy_main() {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera2d);
+    commands.spawn((
+        Camera2d,
+        #[cfg(target_os = "android")]
+        Msaa::Off,
+    ));
 }
 
 fn no_confirm_menu(confirm_roots: Query<(), With<ConfirmMenuRoot>>) -> bool {
@@ -593,8 +605,6 @@ fn index_for_position(pos: Vec2) -> Option<usize> {
         None
     }
 }
-
-// ----- Sync / animation / win check -----
 
 fn sync_tiles(board: Res<BoardState>, mut tiles: Query<(&Tile, &mut TargetPos)>) {
     if !board.is_changed() {

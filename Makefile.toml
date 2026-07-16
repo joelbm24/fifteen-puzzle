@@ -75,12 +75,38 @@ xcrun devicectl device install app --device ${IOS_DEVICE_ID} \
 xcrun devicectl device process launch --device ${IOS_DEVICE_ID} --terminate-existing ${IOS_BUNDLE_ID}
 '''
 
+[tasks.android-targets]
+description = "Install Android rustup targets"
+command = "rustup"
+args = ["target", "add", "aarch64-linux-android"]
+
+[tasks.android-apk-tool]
+description = "Install cargo-apk"
+install_crate = { crate_name = "cargo-apk", binary = "cargo-apk", test_arg = "--help" }
+
+[tasks.android-release]
+description = "Build an Android APK"
+dependencies = ["android-targets", "android-apk-tool"]
+command = "cargo"
+args = ["apk", "build", "-p", "fifteen-gui", "--lib", "--release"]
+
+[tasks.android-run-release]
+description = "Build, install, and launch on a connected Android device/emulator"
+dependencies = ["android-targets", "android-apk-tool"]
+command = "cargo"
+args = ["apk", "run", "-p", "fifteen-gui", "--lib", "--release"]
+
 [tasks.android]
-description = "Placeholder — Android build needs cargo-apk/xbuild + NDK setup, not wired up yet"
-script_runner = "@shell"
-script = '''
-echo "TODO: wire up cargo-apk or xbuild here"
-'''
+description = "Build an Android APK (debug)"
+dependencies = ["android-targets", "android-apk-tool"]
+command = "cargo"
+args = ["apk", "build", "-p", "fifteen-gui", "--lib"]
+
+[tasks.android-run]
+description = "Build, install, and launch on a connected Android device/emulator (debug)"
+dependencies = ["android-targets", "android-apk-tool"]
+command = "cargo"
+args = ["apk", "run", "-p", "fifteen-gui", "--lib"]
 
 [tasks.macos-bundle]
 dependencies = ["desktop-release"]
