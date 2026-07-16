@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Fifteen Puzzle
+Comment=A classic 15-puzzle sliding tile game
+Exec=fifteen-gui
+Icon=fifteen-gui
+Categories=Game;LogicGame;
+Terminal=false
