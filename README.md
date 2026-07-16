@@ -166,6 +166,7 @@ right platform-specific implementation automatically (`tasks.icons.mac` / `tasks
 - **Linux** only regenerates the Android mipmaps, since the macOS bundle isn't built there.
 
 Either way, the mipmaps land in `android_res/mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher.png`.
-Both are gitignored along with `res/app_icon_1024@2x.png` — only the SVG is tracked. This is a
-standalone task, not wired into any build step; run it yourself whenever you change
-`res/app_icon.svg`, before your next Android or macOS build.
+Both are gitignored along with `res/app_icon_1024@2x.png` — only the SVG is tracked. `cargo make
+ios`, `android`, `android-release`, `android-run`, `android-run-release`, and `macos-bundle` all
+depend on `icons`, so it reruns automatically on every one of those builds - you don't need to run
+it separately unless you're only checking the generated files.

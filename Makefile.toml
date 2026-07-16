@@ -54,7 +54,7 @@ args = ["target", "add", "aarch64-apple-ios"]
 
 [tasks.ios]
 description = "Build the iOS static lib and drop it + header into the Xcode project"
-dependencies = ["ios-target"]
+dependencies = ["ios-target", "icons"]
 script_runner = "@shell"
 script = '''
 cargo build -p fifteen-gui --release --target aarch64-apple-ios --lib
@@ -151,30 +151,30 @@ install_crate = { crate_name = "cargo-apk", binary = "cargo-apk", test_arg = "--
 
 [tasks.android-release]
 description = "Build an Android APK"
-dependencies = ["android-targets", "android-apk-tool"]
+dependencies = ["android-targets", "android-apk-tool", "icons"]
 command = "cargo"
 args = ["apk", "build", "-p", "fifteen-gui", "--lib", "--release"]
 
 [tasks.android-run-release]
 description = "Build, install, and launch on a connected Android device/emulator"
-dependencies = ["android-targets", "android-apk-tool"]
+dependencies = ["android-targets", "android-apk-tool", "icons"]
 command = "cargo"
 args = ["apk", "run", "-p", "fifteen-gui", "--lib", "--release"]
 
 [tasks.android]
 description = "Build an Android APK (debug)"
-dependencies = ["android-targets", "android-apk-tool"]
+dependencies = ["android-targets", "android-apk-tool", "icons"]
 command = "cargo"
 args = ["apk", "build", "-p", "fifteen-gui", "--lib"]
 
 [tasks.android-run]
 description = "Build, install, and launch on a connected Android device/emulator (debug)"
-dependencies = ["android-targets", "android-apk-tool"]
+dependencies = ["android-targets", "android-apk-tool", "icons"]
 command = "cargo"
 args = ["apk", "run", "-p", "fifteen-gui", "--lib"]
 
 [tasks.macos-bundle]
-dependencies = ["desktop-release"]
+dependencies = ["desktop-release", "icons"]
 description = "Build a macOS .app bundle"
 install_crate = { crate_name = "cargo-bundle", binary = "cargo-bundle", test_arg = "--help" }
 script_runner = "@shell"
