@@ -75,6 +75,33 @@ xcrun devicectl device install app --device ${IOS_DEVICE_ID} \
 xcrun devicectl device process launch --device ${IOS_DEVICE_ID} --terminate-existing ${IOS_BUNDLE_ID}
 '''
 
+[tasks.icons]
+description = "Regenerate app icons (Android mipmaps + macOS icon) from res/app_icon.svg"
+script_runner = "@shell"
+script = '''
+set -e
+
+if ! command -v rsvg-convert > /dev/null; then
+    echo "rsvg-convert not found. Install it with: brew install librsvg"
+    exit 1
+fi
+
+mkdir -p android_res/mipmap-mdpi android_res/mipmap-hdpi android_res/mipmap-xhdpi \
+         android_res/mipmap-xxhdpi android_res/mipmap-xxxhdpi
+
+rsvg-convert -w 48  -h 48  res/app_icon.svg -o android_res/mipmap-mdpi/ic_launcher.png
+rsvg-convert -w 72  -h 72  res/app_icon.svg -o android_res/mipmap-hdpi/ic_launcher.png
+rsvg-convert -w 96  -h 96  res/app_icon.svg -o android_res/mipmap-xhdpi/ic_launcher.png
+rsvg-convert -w 144 -h 144 res/app_icon.svg -o android_res/mipmap-xxhdpi/ic_launcher.png
+rsvg-convert -w 192 -h 192 res/app_icon.svg -o android_res/mipmap-xxxhdpi/ic_launcher.png
+
+# Keep the @2x suffix in the filename below - that is what cargo-bundle
+# checks to decide this is the retina-density icon.
+rsvg-convert -w 1024 -h 1024 res/app_icon.svg -o res/app_icon_1024@2x.png
+
+echo "Regenerated Android mipmap icons and res/app_icon_1024@2x.png from res/app_icon.svg"
+'''
+
 [tasks.android-targets]
 description = "Install Android rustup targets"
 command = "rustup"

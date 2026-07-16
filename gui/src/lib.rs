@@ -47,9 +47,75 @@ struct PendingWin(bool);
 #[derive(Resource, Default)]
 struct HasPlayed(bool);
 
+/// Derived, screen-size-aware sizing for the tile grid. `TILE_SIZE` (and its
+/// gap/border proportions) act as a *maximum* — on a screen big enough to
+/// fit the original design size, tiles stay exactly that size; on a smaller
+/// screen, everything shrinks (keeping the same proportions) just enough to
+/// fit.
+#[derive(Resource, Clone, Copy)]
+struct GridMetrics {
+    tile_size: f32,
+    gap: f32,
+    border: f32,
+}
+
+impl GridMetrics {
+    fn step(&self) -> f32 {
+        self.tile_size + self.gap
+    }
+
+    /// Scale factor (relative to the original design size, floored so text
+    /// never gets unreadably small) applied to menu/button sizes and fonts
+    /// so UI shrinks in proportion to the tile grid on smaller screens
+    /// instead of staying a fixed pixel size.
+    fn ui_scale(&self) -> f32 {
+        (self.tile_size / TILE_SIZE).max(0.5)
+    }
+}
+
+/// Computes grid sizing for a given window size. Never returns a tile size
+/// larger than `MAX_TILE_SIZE` — only shrinks to fit.
+///
+/// On Android specifically, Bevy's reported window/camera viewport size can
+/// get stuck at its compiled-in default (1280x720) instead of the real
+/// device screen size when using `BorderlessFullscreen` — a known platform
+/// limitation of that windowing backend (`android-activity`/`NativeActivity`),
+/// not something fixable via the public window/camera APIs. `resolve_screen_metrics`
+/// mitigates this by waiting for a real `WindowResized` message, but as a last
+/// line of defense Android also caps tile size at a small, conservative
+/// constant that's guaranteed to fit virtually any real phone screen. iOS uses
+/// a different windowing backend (UIKit) that doesn't share this bug, so it
+/// just uses the same real-size-based fit as desktop, capped at the original
+/// design size.
+fn compute_grid_metrics(window_size: Vec2) -> GridMetrics {
+    let shortest_side = window_size.x.min(window_size.y);
+
+    #[cfg(target_os = "android")]
+    const MAX_TILE_SIZE: f32 = 75.0;
+    #[cfg(not(target_os = "android"))]
+    const MAX_TILE_SIZE: f32 = TILE_SIZE;
+
+    const GAP_RATIO: f32 = TILE_GAP / TILE_SIZE;
+    const BORDER_RATIO: f32 = TILE_BORDER / TILE_SIZE;
+    const FOOTPRINT_COEFF: f32 = GRID_SIZE as f32 + (GRID_SIZE as f32 - 1.0) * GAP_RATIO;
+    const SCREEN_MARGIN: f32 = 0.92; // leave a little breathing room at the edges
+
+    let fitted_tile_size = (shortest_side * SCREEN_MARGIN) / FOOTPRINT_COEFF;
+    let tile_size = fitted_tile_size.min(MAX_TILE_SIZE);
+
+    GridMetrics {
+        tile_size,
+        gap: tile_size * GAP_RATIO,
+        border: tile_size * BORDER_RATIO,
+    }
+}
+
 #[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 enum GameState {
+    /// Briefly active on startup while we wait to learn the real screen
+    /// size (see `resolve_screen_metrics`), before any UI is spawned.
     #[default]
+    Loading,
     Menu,
     Playing,
 }
@@ -107,7 +173,9 @@ pub fn run_app() {
         .init_resource::<HasPlayed>()
         .insert_resource(BoardState(Board::shuffled(200)))
         .init_state::<GameState>()
-        .add_systems(Startup, (setup_camera, spawn_tiles, spawn_ingame_button).chain())
+        .add_systems(Startup, setup_camera)
+        .add_systems(Update, resolve_screen_metrics.run_if(in_state(GameState::Loading)))
+        .add_systems(OnExit(GameState::Loading), spawn_ingame_button)
         .add_systems(OnEnter(GameState::Menu), (spawn_menu, hide_ingame_button))
         .add_systems(OnExit(GameState::Menu), despawn_menu)
         .add_systems(OnEnter(GameState::Playing), (show_tiles, show_ingame_button))
@@ -147,7 +215,9 @@ fn no_confirm_menu(confirm_roots: Query<(), With<ConfirmMenuRoot>>) -> bool {
 
 // ----- Start / win menu -----
 
-fn spawn_menu(mut commands: Commands, message: Res<MenuMessage>) {
+fn spawn_menu(mut commands: Commands, message: Res<MenuMessage>, metrics: Res<GridMetrics>) {
+    let scale = metrics.ui_scale();
+
     if message.is_win {
         // Win screen: title + button sit on a darker, padded panel.
         commands.spawn((
@@ -165,10 +235,10 @@ fn spawn_menu(mut commands: Commands, message: Res<MenuMessage>) {
                     flex_direction: FlexDirection::Column,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    row_gap: px(20),
-                    padding: UiRect::all(px(40)),
+                    row_gap: px(20.0 * scale),
+                    padding: UiRect::all(px(40.0 * scale)),
                     width: percent(90),
-                    border_radius: BorderRadius::all(px(24)),
+                    border_radius: BorderRadius::all(px(24.0 * scale)),
                     ..default()
                 },
                 BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.85)),
@@ -176,12 +246,12 @@ fn spawn_menu(mut commands: Commands, message: Res<MenuMessage>) {
                     (
                         Text::new(message.text.clone()),
                         TextFont {
-                            font_size: FontSize::Px(50.0),
+                            font_size: FontSize::Px(50.0 * scale),
                             ..default()
                         },
                         TextColor(Color::WHITE),
                     ),
-                    new_game_button_bundle(),
+                    new_game_button_bundle(scale),
                 ],
             )],
         ));
@@ -195,7 +265,7 @@ fn spawn_menu(mut commands: Commands, message: Res<MenuMessage>) {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                row_gap: px(20),
+                row_gap: px(20.0 * scale),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)),
@@ -203,12 +273,12 @@ fn spawn_menu(mut commands: Commands, message: Res<MenuMessage>) {
                 (
                     Text::new(message.text.clone()),
                     TextFont {
-                        font_size: FontSize::Px(50.0),
+                        font_size: FontSize::Px(50.0 * scale),
                         ..default()
                     },
                     TextColor(Color::WHITE),
                 ),
-                new_game_button_bundle(),
+                new_game_button_bundle(scale),
             ],
         ));
     }
@@ -274,40 +344,90 @@ fn button_system(
 
 // ----- Tiles -----
 
-fn spawn_tiles(mut commands: Commands, board: Res<BoardState>) {
+/// Waits for a real `WindowResized` message before proceeding — Android
+/// reports an initial placeholder size at startup, then fires a resize
+/// message once the true device screen dimensions are established. Falls
+/// back to whatever the window currently reports after a short timeout,
+/// since some platforms (desktop) may never fire a resize message at all if
+/// the window is already correctly sized from the first frame.
+///
+/// Runs only in `GameState::Loading`, before any menu/tile UI is spawned, so
+/// that everything — tiles, menu buttons, fonts — gets sized from real
+/// screen dimensions from the very first thing the player sees, rather than
+/// spawning once at a guessed size and never re-scaling.
+fn resolve_screen_metrics(
+    mut commands: Commands,
+    windows: Query<&Window>,
+    board: Res<BoardState>,
+    mut resize_events: MessageReader<bevy::window::WindowResized>,
+    mut frames_waited: Local<u32>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    const FALLBACK_FRAMES: u32 = 10;
+
+    let size = if let Some(event) = resize_events.read().last() {
+        Vec2::new(event.width, event.height)
+    } else {
+        *frames_waited += 1;
+        if *frames_waited < FALLBACK_FRAMES {
+            return; // give a real resize message a chance to arrive first
+        }
+        let Ok(window) = windows.single() else { return };
+        Vec2::new(window.width(), window.height())
+    };
+
+    let metrics = compute_grid_metrics(size);
+    bevy::log::info!(
+        "GRID DEBUG: resolved size = {:?}, tile_size = {}, gap = {}, border = {}, ui_scale = {}",
+        size,
+        metrics.tile_size,
+        metrics.gap,
+        metrics.border,
+        metrics.ui_scale(),
+    );
+    spawn_tiles_with_metrics(&mut commands, &board, &metrics);
+    commands.insert_resource(metrics);
+    next_state.set(GameState::Menu);
+}
+
+fn spawn_tiles_with_metrics(commands: &mut Commands, board: &BoardState, metrics: &GridMetrics) {
+    let shadow_offset = metrics.tile_size * 0.04;
+    let font_size = metrics.tile_size * 0.4;
+
     for (index, &value) in board.0.tiles().iter().enumerate() {
         if value == 0 {
             continue; // blank tile has no entity
         }
 
+        let pos = position_for_index(index, metrics);
+
         commands
             .spawn((
                 Tile { value },
-                Transform::from_translation(position_for_index(index)),
-                TargetPos(position_for_index(index)),
+                Transform::from_translation(pos),
+                TargetPos(pos),
                 Visibility::Hidden,
             ))
             .with_children(|tile| {
                 // Drop shadow, offset down-right, drawn behind everything.
                 tile.spawn((
-                    Sprite::from_color(TILE_SHADOW, Vec2::splat(TILE_SIZE)),
-                    Transform::from_xyz(4.0, -4.0, 0.0),
+                    Sprite::from_color(TILE_SHADOW, Vec2::splat(metrics.tile_size)),
+                    Transform::from_xyz(shadow_offset, -shadow_offset, 0.0),
                 ));
 
                 let tile_color = if value % 2 == 0 { TILE_FACE } else { TILE_FACE2 };
 
                 // Darker frame — full tile size, shows as a border.
-                // let tile_frame_color = if value % 2 == 0 { TILE_FRAME } else { TILE_FRAME2 };
                 let darken = if value % 2 == 0 { 0.05 } else { 0.10 };
                 let tile_frame_color: Color = tile_color.to_srgba().darker(darken).into();
 
                 tile.spawn((
-                    Sprite::from_color(tile_frame_color, Vec2::splat(TILE_SIZE)),
+                    Sprite::from_color(tile_frame_color, Vec2::splat(metrics.tile_size)),
                     Transform::from_xyz(0.0, 0.0, 0.1),
                 ));
 
                 tile.spawn((
-                    Sprite::from_color(tile_color, Vec2::splat(TILE_SIZE - TILE_BORDER * 2.0)),
+                    Sprite::from_color(tile_color, Vec2::splat(metrics.tile_size - metrics.border * 2.0)),
                     Transform::from_xyz(0.0, 0.0, 0.2),
                 ));
 
@@ -315,7 +435,7 @@ fn spawn_tiles(mut commands: Commands, board: Res<BoardState>) {
                 tile.spawn((
                     Text2d::new(value.to_string()),
                     TextFont {
-                        font_size: FontSize::Px(40.0),
+                        font_size: FontSize::Px(font_size),
                         ..default()
                     },
                     TextColor(Color::WHITE),
@@ -333,26 +453,28 @@ fn show_tiles(mut tiles: Query<&mut Visibility, With<Tile>>) {
 
 // ----- In-game corner button + confirm dialog -----
 
-fn spawn_ingame_button(mut commands: Commands) {
+fn spawn_ingame_button(mut commands: Commands, metrics: Res<GridMetrics>) {
+    let scale = metrics.ui_scale();
+
     commands.spawn((
         IngameButton,
         Visibility::Hidden,
         Node {
             position_type: PositionType::Absolute,
             #[cfg(any(target_os = "ios", target_os = "android"))]
-            top: px(60),
+            top: px(60.0 * scale),
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
-            top: px(16),
-            right: px(16),
+            top: px(16.0 * scale),
+            right: px(16.0 * scale),
             ..default()
         },
         children![(
             Button,
             OpenConfirmButton,
             Node {
-                width: px(140),
-                height: px(45),
-                border: UiRect::all(px(3)),
+                width: px(140.0 * scale),
+                height: px(45.0 * scale),
+                border: UiRect::all(px(3.0 * scale)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 border_radius: BorderRadius::MAX,
@@ -363,7 +485,7 @@ fn spawn_ingame_button(mut commands: Commands) {
             children![(
                 Text::new("Menu"),
                 TextFont {
-                    font_size: FontSize::Px(20.0),
+                    font_size: FontSize::Px(20.0 * scale),
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -384,7 +506,9 @@ fn hide_ingame_button(mut buttons: Query<&mut Visibility, With<IngameButton>>) {
     }
 }
 
-fn spawn_confirm_menu(commands: &mut Commands) {
+fn spawn_confirm_menu(commands: &mut Commands, metrics: &GridMetrics) {
+    let scale = metrics.ui_scale();
+
     commands.spawn((
         ConfirmMenuRoot,
         Node {
@@ -400,10 +524,10 @@ fn spawn_confirm_menu(commands: &mut Commands) {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                row_gap: px(20),
+                row_gap: px(20.0 * scale),
                 width: percent(90),
-                padding: UiRect::all(px(40)),
-                border_radius: BorderRadius::all(px(24)),
+                padding: UiRect::all(px(40.0 * scale)),
+                border_radius: BorderRadius::all(px(24.0 * scale)),
                 ..default()
             },
             BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.9)),
@@ -411,7 +535,7 @@ fn spawn_confirm_menu(commands: &mut Commands) {
                 (
                     Text::new("Start a new game?"),
                     TextFont {
-                        font_size: FontSize::Px(30.0),
+                        font_size: FontSize::Px(30.0 * scale),
                         ..default()
                     },
                     TextColor(Color::WHITE),
@@ -419,7 +543,7 @@ fn spawn_confirm_menu(commands: &mut Commands) {
                 (
                     Node {
                         flex_direction: FlexDirection::Row,
-                        column_gap: px(20),
+                        column_gap: px(20.0 * scale),
                         ..default()
                     },
                     children![
@@ -427,9 +551,9 @@ fn spawn_confirm_menu(commands: &mut Commands) {
                             Button,
                             NewGameButton,
                             Node {
-                                width: px(160),
-                                height: px(55),
-                                border: UiRect::all(px(4)),
+                                width: px(160.0 * scale),
+                                height: px(55.0 * scale),
+                                border: UiRect::all(px(4.0 * scale)),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 border_radius: BorderRadius::MAX,
@@ -440,7 +564,7 @@ fn spawn_confirm_menu(commands: &mut Commands) {
                             children![(
                                 Text::new("New Game"),
                                 TextFont {
-                                    font_size: FontSize::Px(24.0),
+                                    font_size: FontSize::Px(24.0 * scale),
                                     ..default()
                                 },
                                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -450,9 +574,9 @@ fn spawn_confirm_menu(commands: &mut Commands) {
                             Button,
                             CancelConfirmButton,
                             Node {
-                                width: px(160),
-                                height: px(55),
-                                border: UiRect::all(px(4)),
+                                width: px(160.0 * scale),
+                                height: px(55.0 * scale),
+                                border: UiRect::all(px(4.0 * scale)),
                                 justify_content: JustifyContent::Center,
                                 align_items: AlignItems::Center,
                                 border_radius: BorderRadius::MAX,
@@ -463,7 +587,7 @@ fn spawn_confirm_menu(commands: &mut Commands) {
                             children![(
                                 Text::new("Exit"),
                                 TextFont {
-                                    font_size: FontSize::Px(24.0),
+                                    font_size: FontSize::Px(24.0 * scale),
                                     ..default()
                                 },
                                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -483,7 +607,10 @@ fn open_confirm_menu(
         (Changed<Interaction>, With<OpenConfirmButton>),
     >,
     existing: Query<Entity, With<ConfirmMenuRoot>>,
+    metrics: Option<Res<GridMetrics>>,
 ) {
+    let Some(metrics) = metrics else { return }; // not resolved yet (Loading)
+
     for (interaction, mut color, mut border_color, mut button) in &mut interactions {
         match *interaction {
             Interaction::Pressed => {
@@ -492,7 +619,7 @@ fn open_confirm_menu(
                 button.set_changed();
 
                 if existing.is_empty() {
-                    spawn_confirm_menu(&mut commands);
+                    spawn_confirm_menu(&mut commands, &metrics);
                 }
             }
             Interaction::Hovered => {
@@ -568,7 +695,9 @@ fn handle_pointer_input(
     windows: Query<&Window>,
     camera: Query<(&Camera, &GlobalTransform)>,
     mut board: ResMut<BoardState>,
+    metrics: Option<Res<GridMetrics>>,
 ) {
+    let Some(metrics) = metrics else { return }; // tiles/metrics not ready yet
     let Ok(window) = windows.single() else { return };
     let Ok((camera, camera_transform)) = camera.single() else {
         return;
@@ -585,15 +714,15 @@ fn handle_pointer_input(
         return;
     };
 
-    if let Some(index) = index_for_position(world_pos) {
+    if let Some(index) = index_for_position(world_pos, &metrics) {
         let _ = board.0.slide_toward(index); // ignore clicks off-axis from the blank
     }
 }
 
 /// Inverse of `position_for_index` — maps a world-space point to the
 /// nearest grid cell, or `None` if it falls outside the board.
-fn index_for_position(pos: Vec2) -> Option<usize> {
-    let step = TILE_SIZE + TILE_GAP;
+fn index_for_position(pos: Vec2, metrics: &GridMetrics) -> Option<usize> {
+    let step = metrics.step();
     let offset = step * (GRID_SIZE as f32 - 1.0) / 2.0;
 
     let col = ((pos.x + offset) / step).round() as i32;
@@ -606,14 +735,15 @@ fn index_for_position(pos: Vec2) -> Option<usize> {
     }
 }
 
-fn sync_tiles(board: Res<BoardState>, mut tiles: Query<(&Tile, &mut TargetPos)>) {
+fn sync_tiles(board: Res<BoardState>, metrics: Option<Res<GridMetrics>>, mut tiles: Query<(&Tile, &mut TargetPos)>) {
+    let Some(metrics) = metrics else { return };
     if !board.is_changed() {
         return;
     }
 
     for (tile, mut target) in &mut tiles {
         if let Some(index) = board.0.tiles().iter().position(|&v| v == tile.value) {
-            target.0 = position_for_index(index);
+            target.0 = position_for_index(index, &metrics);
         }
     }
 }
@@ -672,23 +802,26 @@ fn show_win_when_settled(
 }
 
 /// Converts a flat 0..16 board index into a centered world-space position.
-fn position_for_index(index: usize) -> Vec3 {
+fn position_for_index(index: usize, metrics: &GridMetrics) -> Vec3 {
     let row = (index / GRID_SIZE as usize) as f32;
     let col = (index % GRID_SIZE as usize) as f32;
-    let step = TILE_SIZE + TILE_GAP;
+    let step = metrics.step();
     let offset = step * (GRID_SIZE as f32 - 1.0) / 2.0;
 
     Vec3::new(col * step - offset, offset - row * step, 0.0)
 }
 
-fn new_game_button_bundle() -> impl Bundle {
+/// `scale` is the same `GridMetrics::ui_scale()` factor used everywhere
+/// else — always <= 1.0, so these px sizes are a maximum that only shrinks
+/// to fit smaller screens, never grows past the original design size.
+fn new_game_button_bundle(scale: f32) -> impl Bundle {
     (
         Button,
         NewGameButton,
         Node {
-            width: px(200),
-            height: px(65),
-            border: UiRect::all(px(5)),
+            width: px(200.0 * scale),
+            height: px(65.0 * scale),
+            border: UiRect::all(px(5.0 * scale)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             border_radius: BorderRadius::MAX,
@@ -699,7 +832,7 @@ fn new_game_button_bundle() -> impl Bundle {
         children![(
             Text::new("New Game"),
             TextFont {
-                font_size: FontSize::Px(33.0),
+                font_size: FontSize::Px(33.0 * scale),
                 ..default()
             },
             TextColor(Color::srgb(0.9, 0.9, 0.9)),

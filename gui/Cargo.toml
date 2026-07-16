@@ -25,10 +25,14 @@ bevy = { version = "0.19", features = ["android-native-activity"] }
 [package.metadata.android]
 package = "com.joelbuchheimmoore.fifteenpuzzle"
 build_targets = ["aarch64-linux-android"]
+resources = "../android_res"
 
 [package.metadata.android.sdk]
 target_sdk_version = 33
 min_sdk_version = 26
+
+[package.metadata.android.application]
+icon = "@mipmap/ic_launcher"
 
 [package.metadata.bundle]
 name = "Fifteen Puzzle"

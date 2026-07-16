@@ -1,0 +1,43 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#16233F"/>
+      <stop offset="100%" stop-color="#0B1526"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background (iOS applies its own corner mask, so this stays a plain square) -->
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Tile 1 (top-left) - odd -->
+  <g>
+    <rect x="158" y="158" width="362" height="362" rx="65" fill="#000000" opacity="0.35"/>
+    <rect x="140" y="140" width="362" height="362" rx="65" fill="#003C91"/>
+    <rect x="158" y="158" width="326" height="326" rx="50" fill="#0047AB"/>
+    <text x="321" y="342" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="191" fill="#FFFFFF" text-anchor="middle" dominant-baseline="middle">1</text>
+  </g>
+
+  <!-- Tile 2 (top-right) - even -->
+  <g>
+    <rect x="540" y="158" width="362" height="362" rx="65" fill="#000000" opacity="0.35"/>
+    <rect x="522" y="140" width="362" height="362" rx="65" fill="#AD4800"/>
+    <rect x="540" y="158" width="326" height="326" rx="50" fill="#CC5500"/>
+    <text x="703" y="342" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="191" fill="#FFFFFF" text-anchor="middle" dominant-baseline="middle">2</text>
+  </g>
+
+  <!-- Tile 3 (bottom-left) - odd -->
+  <g>
+    <rect x="158" y="540" width="362" height="362" rx="65" fill="#000000" opacity="0.35"/>
+    <rect x="140" y="522" width="362" height="362" rx="65" fill="#003C91"/>
+    <rect x="158" y="540" width="326" height="326" rx="50" fill="#0047AB"/>
+    <text x="321" y="724" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="191" fill="#FFFFFF" text-anchor="middle" dominant-baseline="middle">3</text>
+  </g>
+
+  <!-- Tile 4 (bottom-right) - even -->
+  <g>
+    <rect x="540" y="540" width="362" height="362" rx="65" fill="#000000" opacity="0.35"/>
+    <rect x="522" y="522" width="362" height="362" rx="65" fill="#AD4800"/>
+    <rect x="540" y="540" width="326" height="326" rx="50" fill="#CC5500"/>
+    <text x="703" y="724" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="191" fill="#FFFFFF" text-anchor="middle" dominant-baseline="middle">4</text>
+  </g>
+</svg>

@@ -1,5 +1,6 @@
 # Rust build output (shared by the whole workspace)
 /target/
+.env
 
 # Trunk's web/wasm build output
 gui/dist/
