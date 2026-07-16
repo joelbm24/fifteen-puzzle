@@ -76,23 +76,17 @@ impl GridMetrics {
 /// Computes grid sizing for a given window size. Never returns a tile size
 /// larger than `MAX_TILE_SIZE` — only shrinks to fit.
 ///
-/// On Android specifically, Bevy's reported window/camera viewport size can
-/// get stuck at its compiled-in default (1280x720) instead of the real
+/// On Android specifically, Bevy's reported window/camera viewport size used
+/// to get stuck at its compiled-in default (1280x720) instead of the real
 /// device screen size when using `BorderlessFullscreen` — a known platform
-/// limitation of that windowing backend (`android-activity`/`NativeActivity`),
-/// not something fixable via the public window/camera APIs. `resolve_screen_metrics`
-/// mitigates this by waiting for a real `WindowResized` message, but as a last
-/// line of defense Android also caps tile size at a small, conservative
-/// constant that's guaranteed to fit virtually any real phone screen. iOS uses
-/// a different windowing backend (UIKit) that doesn't share this bug, so it
-/// just uses the same real-size-based fit as desktop, capped at the original
-/// design size.
+/// limitation of that windowing backend (`android-activity`/`NativeActivity`).
+/// `resolve_screen_metrics` fixed this by waiting for a real `WindowResized`
+/// message instead of trusting the size on the first frame, so Android now
+/// gets the same real-size-based fit as iOS and desktop, capped at the
+/// original design size - no extra platform-specific ceiling needed.
 fn compute_grid_metrics(window_size: Vec2) -> GridMetrics {
     let shortest_side = window_size.x.min(window_size.y);
 
-    #[cfg(target_os = "android")]
-    const MAX_TILE_SIZE: f32 = 75.0;
-    #[cfg(not(target_os = "android"))]
     const MAX_TILE_SIZE: f32 = TILE_SIZE;
 
     const GAP_RATIO: f32 = TILE_GAP / TILE_SIZE;
