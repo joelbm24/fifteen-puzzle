@@ -40,3 +40,16 @@ identifier = "com.joelbuchheimmoore.FifteenPuzzle"
 icon = ["../res/app_icon_1024@2x.png"]
 category = "public.app-category.puzzle-games"
 short_description = "A sliding fifteen puzzle"
+
+[package.metadata.deb]
+maintainer = "Joel <joelbm24@gmail.com>"
+copyright = "2026, Joel"
+extended-description = "A classic 15-puzzle sliding tile game."
+depends = "$auto"
+section = "games"
+priority = "optional"
+assets = [
+    ["target/release/fifteen-gui", "usr/bin/", "755"],
+    ["fifteen-gui.desktop", "usr/share/applications/", "644"],
+    ["../res/app_icon.svg", "usr/share/icons/hicolor/scalable/apps/fifteen-gui.svg", "644"],
+]
