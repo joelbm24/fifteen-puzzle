@@ -1,6 +1,13 @@
 [config]
 default_to_workspace = false
 
+# Loads sensitive/local values (IOS_DEVICE_ID, the cargo-apk keystore vars, etc.)
+# from .env, which is gitignored - see example.env for the template. `defaults_only`
+# means anything already exported in your shell/CI takes precedence over .env.
+env_files = [
+    { path = "./.env", defaults_only = true }
+]
+
 [env]
 IOS_XCODE_PROJECT_DIR = { value = "ios/FifteenPuzzle", condition = { env_not_set = ["IOS_XCODE_PROJECT_DIR"] } }
 IOS_SCHEME = "FifteenPuzzle"
@@ -59,7 +66,7 @@ echo "Copied libfifteen_gui.a and header into ${IOS_XCODE_PROJECT_DIR}"
 '''
 
 [tasks.ios-run-device]
-description = "Build, install, and launch on a connected iPhone. Usage: IOS_DEVICE_ID=<id> cargo make ios-run-device"
+description = "Build, install, and launch on a connected iPhone. Set IOS_DEVICE_ID in .env, or pass it inline: IOS_DEVICE_ID=<id> cargo make ios-run-device"
 dependencies = ["ios"]
 script_runner = "@shell"
 script = '''
@@ -76,7 +83,15 @@ xcrun devicectl device process launch --device ${IOS_DEVICE_ID} --terminate-exis
 '''
 
 [tasks.icons]
-description = "Regenerate app icons (Android mipmaps + macOS icon) from res/app_icon.svg"
+description = "Regenerate app icons from res/app_icon.svg (see icons.mac / icons.linux for the platform-specific implementations cargo-make dispatches to)"
+script_runner = "@shell"
+script = '''
+echo "No icon generation is defined for this platform. See icons.mac / icons.linux in Makefile.toml."
+exit 1
+'''
+
+[tasks.icons.mac]
+description = "Regenerate Android mipmaps + macOS icon from res/app_icon.svg (macOS)"
 script_runner = "@shell"
 script = '''
 set -e
@@ -100,6 +115,29 @@ rsvg-convert -w 192 -h 192 res/app_icon.svg -o android_res/mipmap-xxxhdpi/ic_lau
 rsvg-convert -w 1024 -h 1024 res/app_icon.svg -o res/app_icon_1024@2x.png
 
 echo "Regenerated Android mipmap icons and res/app_icon_1024@2x.png from res/app_icon.svg"
+'''
+
+[tasks.icons.linux]
+description = "Regenerate Android mipmaps from res/app_icon.svg (Linux)"
+script_runner = "@shell"
+script = '''
+set -e
+
+if ! command -v rsvg-convert > /dev/null; then
+    echo "rsvg-convert not found. Install it with: sudo apt install librsvg2-bin"
+    exit 1
+fi
+
+mkdir -p android_res/mipmap-mdpi android_res/mipmap-hdpi android_res/mipmap-xhdpi \
+         android_res/mipmap-xxhdpi android_res/mipmap-xxxhdpi
+
+rsvg-convert -w 48  -h 48  res/app_icon.svg -o android_res/mipmap-mdpi/ic_launcher.png
+rsvg-convert -w 72  -h 72  res/app_icon.svg -o android_res/mipmap-hdpi/ic_launcher.png
+rsvg-convert -w 96  -h 96  res/app_icon.svg -o android_res/mipmap-xhdpi/ic_launcher.png
+rsvg-convert -w 144 -h 144 res/app_icon.svg -o android_res/mipmap-xxhdpi/ic_launcher.png
+rsvg-convert -w 192 -h 192 res/app_icon.svg -o android_res/mipmap-xxxhdpi/ic_launcher.png
+
+echo "Regenerated Android mipmap icons from res/app_icon.svg"
 '''
 
 [tasks.android-targets]

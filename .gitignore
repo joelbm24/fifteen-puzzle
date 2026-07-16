@@ -1,9 +1,8 @@
 # Rust build output (shared by the whole workspace)
 /target/
-.env
 
 # Trunk's web/wasm build output
-gui/dist/
+/gui/dist/
 
 # macOS
 .DS_Store
@@ -22,8 +21,12 @@ ios/**/*.xcworkspace/xcshareddata/
 ios/FifteenPuzzle/lib/
 ios/FifteenPuzzle/include/
 
+# Generated app icons - `cargo make icons` renders these from res/app_icon.svg,
+# which is the only icon file that should actually be tracked in git.
+/android_res/
+/res/app_icon_1024@2x.png
+
 # Editors
 .vscode/
 .idea/
 *.swp
-.projectile
