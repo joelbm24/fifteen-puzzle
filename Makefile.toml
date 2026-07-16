@@ -47,7 +47,7 @@ args = ["target", "add", "aarch64-apple-ios"]
 
 [tasks.ios]
 description = "Build the iOS static lib and drop it + header into the Xcode project"
-dependencies = ["ios-target", "icons"]
+dependencies = ["ios-target"]
 script_runner = "@shell"
 script = '''
 cargo build -p fifteen-gui --release --target aarch64-apple-ios --lib
@@ -113,30 +113,30 @@ install_crate = { crate_name = "cargo-apk", binary = "cargo-apk", test_arg = "--
 
 [tasks.android-release]
 description = "Build an Android APK"
-dependencies = ["android-targets", "android-apk-tool", "icons"]
+dependencies = ["android-targets", "android-apk-tool"]
 command = "cargo"
 args = ["apk", "build", "-p", "fifteen-gui", "--lib", "--release"]
 
 [tasks.android-run-release]
 description = "Build, install, and launch on a connected Android device/emulator"
-dependencies = ["android-targets", "android-apk-tool", "icons"]
+dependencies = ["android-targets", "android-apk-tool"]
 command = "cargo"
 args = ["apk", "run", "-p", "fifteen-gui", "--lib", "--release"]
 
 [tasks.android]
 description = "Build an Android APK (debug)"
-dependencies = ["android-targets", "android-apk-tool", "icons"]
+dependencies = ["android-targets", "android-apk-tool"]
 command = "cargo"
 args = ["apk", "build", "-p", "fifteen-gui", "--lib"]
 
 [tasks.android-run]
 description = "Build, install, and launch on a connected Android device/emulator (debug)"
-dependencies = ["android-targets", "android-apk-tool", "icons"]
+dependencies = ["android-targets", "android-apk-tool"]
 command = "cargo"
 args = ["apk", "run", "-p", "fifteen-gui", "--lib"]
 
 [tasks.macos-bundle]
-dependencies = ["desktop-release", "icons"]
+dependencies = ["desktop-release"]
 description = "Build a macOS .app bundle"
 install_crate = { crate_name = "cargo-bundle", binary = "cargo-bundle", test_arg = "--help" }
 script_runner = "@shell"
@@ -161,7 +161,7 @@ install_crate = { crate_name = "cargo-deb", binary = "cargo-deb", test_arg = "--
 
 [tasks.linux-deb]
 description = "Build a Debian (.deb) package. Must be run on Linux - see README."
-dependencies = ["icons", "linux-deb-tool"]
+dependencies = ["linux-deb-tool"]
 command = "cargo"
 args = ["deb", "-p", "fifteen-gui"]
 
