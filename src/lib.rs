@@ -1,4 +1,3 @@
-use rand::RngExt;
 use rand::seq::SliceRandom;
 use std::fmt;
 use thiserror::Error;
