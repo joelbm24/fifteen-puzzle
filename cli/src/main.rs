@@ -51,7 +51,7 @@ fn restore_terminal() -> io::Result<()> {
 }
 
 fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
-    let mut board = Board::shuffled(200);
+    let mut board = Board::shuffled();
 
     loop {
         terminal.draw(|frame| render_board(frame, frame.area(), &board))?;
@@ -60,7 +60,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
             match wait_for_quit_or_new_game()? {
                 PostWinAction::Quit => break,
                 PostWinAction::NewGame => {
-                    board = Board::shuffled(200);
+                    board = Board::shuffled();
                     continue;
                 }
             }
@@ -81,7 +81,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
                     KeyCode::Right => Some(Move::Left),
                     KeyCode::Char('q') | KeyCode::Esc => break,
                     KeyCode::Char('n') => {
-                        board = Board::shuffled(200);
+                        board = Board::shuffled();
                         continue;
                     }
                     _ => None,
@@ -161,11 +161,6 @@ fn render_board(frame: &mut Frame, area: Rect, board: &Board) {
     }
 }
 
-/// Renders a single tile: an uncolored border, then the colored fill and
-/// centered number inside it. The border and the colored Paragraph are two
-/// separate widgets so the tile color never bleeds into the border — a
-/// Paragraph's `.style()` paints its *entire* area (border included) before
-/// the block's border characters are drawn on top.
 fn render_cell(frame: &mut Frame, area: Rect, tile: u8) {
     let block = Block::default().borders(Borders::ALL);
     let inner = block.inner(area);
@@ -194,10 +189,6 @@ fn render_cell(frame: &mut Frame, area: Rect, tile: u8) {
     frame.render_widget(text, inner);
 }
 
-/// Splits the full frame into a one-line status row (full width, so
-/// instructions are never truncated by the narrower board border) and the
-/// remaining area the board is centered within. Shared by rendering and
-/// click hit-testing so the two never drift apart.
 fn split_status_and_board(area: Rect) -> (Rect, Rect) {
     let sections = Layout::default()
         .direction(Direction::Vertical)
@@ -206,15 +197,12 @@ fn split_status_and_board(area: Rect) -> (Rect, Rect) {
     (sections[0], sections[1])
 }
 
-/// Computes the outer bordered board rect, centered within `area`.
 fn centered_board_rect(area: Rect) -> Rect {
     let board_width = TILE_WIDTH * GRID_SIZE + 2; // +2 for outer border
     let board_height = TILE_HEIGHT * GRID_SIZE + 2;
     centered_rect(board_width, board_height, area)
 }
 
-/// Maps a terminal click position to a board index, or `None` if the click
-/// landed outside the grid.
 fn tile_at(area: Rect, column: u16, row: u16) -> Option<usize> {
     let (_, board_container) = split_status_and_board(area);
     let board_area = centered_board_rect(board_container);
@@ -241,7 +229,6 @@ fn tile_at(area: Rect, column: u16, row: u16) -> Option<usize> {
     Some(tile_row * GRID_SIZE as usize + tile_col)
 }
 
-/// Centers a fixed `width` x `height` rect within `area`.
 fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
     let vertical = Layout::default()
         .direction(Direction::Vertical)

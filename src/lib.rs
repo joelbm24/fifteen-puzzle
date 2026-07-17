@@ -1,4 +1,5 @@
 use rand::RngExt;
+use rand::seq::SliceRandom;
 use std::fmt;
 use thiserror::Error;
 
@@ -97,24 +98,60 @@ impl Board {
         Ok(())
     }
 
-    pub fn shuffled(n: usize) -> Self {
-        let mut board = Board::new();
-        let mut rng = rand::rng(); // was thread_rng()
-        let mut last_move: Option<Move> = None;
+    /// Produces a uniformly random *solvable* shuffled board.
+    ///
+    /// Only half of all `16!` tile arrangements are actually reachable by legal
+    /// slides - this is the classic 15-puzzle parity invariant (the same fact
+    /// behind Sam Loyd's famous unsolvable "14-15" swap). Rather than replaying
+    /// a long random walk of legal moves from the solved state (which is only
+    /// *approximately* uniform, relying on the walk having mixed well), this
+    /// generates a uniformly random permutation directly and fixes it up if it
+    /// happens to land on the unsolvable half - giving an exactly uniform
+    /// distribution over solvable boards in one pass.
+    pub fn shuffled() -> Self {
+        let mut rng = rand::rng();
 
-        for _ in 0..n {
-            let candidates: Vec<Move> = board
-                .legal_moves()
-                .into_iter()
-                .filter(|&m| last_move.map_or(true, |last| m != last.opposite()))
-                .collect();
+        let mut tiles: [u8; 16] = std::array::from_fn(|i| if i < 15 { (i + 1) as u8 } else { 0 });
+        tiles.shuffle(&mut rng);
 
-            let mv = candidates[rng.random_range(0..candidates.len())]; // was gen_range()
-            board.apply_move(mv).expect("legal_moves() only returns valid moves");
-            last_move = Some(mv);
+        let blank = tiles.iter().position(|&t| t == 0).expect("exactly one blank");
+        let mut board = Board { tiles, blank };
+
+        if !board.is_solvable() {
+            // Swapping any two non-blank tiles flips the permutation's parity,
+            // which flips solvability, without needing to touch the blank.
+            let mut non_blank_indices = board.tiles.iter().enumerate().filter(|&(_, &t)| t != 0).map(|(i, _)| i);
+            let i = non_blank_indices.next().expect("15 non-blank tiles");
+            let j = non_blank_indices.next().expect("15 non-blank tiles");
+            board.tiles.swap(i, j);
         }
 
         board
+    }
+
+    pub fn is_solvable(&self) -> bool {
+        let mut visited = [false; 16];
+        let mut cycles = 0;
+        for start in 0..16 {
+            if visited[start] {
+                continue;
+            }
+            cycles += 1;
+            let mut i = start;
+            while !visited[i] {
+                visited[i] = true;
+                i = (self.tiles[i] as usize + 15) % 16; // (tile - 1) mod 16
+            }
+        }
+        let permutation_is_odd = (16 - cycles) % 2 == 1;
+
+        const SOLVED_BLANK: usize = 15;
+        let (row, col) = (self.blank / 4, self.blank % 4);
+        let (solved_row, solved_col) = (SOLVED_BLANK / 4, SOLVED_BLANK % 4);
+        let taxicab_distance = row.abs_diff(solved_row) + col.abs_diff(solved_col);
+        let distance_is_odd = taxicab_distance % 2 == 1;
+
+        permutation_is_odd == distance_is_odd
     }
 }
 
@@ -156,5 +193,37 @@ impl Move {
             Move::Left => Move::Right,
             Move::Right => Move::Left,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn solved_board_is_solvable() {
+        assert!(Board::new().is_solvable());
+    }
+
+    #[test]
+    fn classic_14_15_swap_is_unsolvable() {
+        let mut board = Board::new();
+        board.tiles.swap(13, 14); // positions of values 14 and 15
+        assert!(!board.is_solvable());
+    }
+
+    #[test]
+    fn shuffled_is_always_solvable() {
+        for _ in 0..1000 {
+            assert!(Board::shuffled().is_solvable());
+        }
+    }
+
+    #[test]
+    fn solvable_after_legal_moves_with_blank_elsewhere() {
+        let mut board = Board::new();
+        board.apply_move(Move::Up).unwrap();
+        board.apply_move(Move::Left).unwrap();
+        assert!(board.is_solvable());
     }
 }

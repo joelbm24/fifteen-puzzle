@@ -47,11 +47,6 @@ struct PendingWin(bool);
 #[derive(Resource, Default)]
 struct HasPlayed(bool);
 
-/// Derived, screen-size-aware sizing for the tile grid. `TILE_SIZE` (and its
-/// gap/border proportions) act as a *maximum* — on a screen big enough to
-/// fit the original design size, tiles stay exactly that size; on a smaller
-/// screen, everything shrinks (keeping the same proportions) just enough to
-/// fit.
 #[derive(Resource, Clone, Copy)]
 struct GridMetrics {
     tile_size: f32,
@@ -64,26 +59,11 @@ impl GridMetrics {
         self.tile_size + self.gap
     }
 
-    /// Scale factor (relative to the original design size, floored so text
-    /// never gets unreadably small) applied to menu/button sizes and fonts
-    /// so UI shrinks in proportion to the tile grid on smaller screens
-    /// instead of staying a fixed pixel size.
     fn ui_scale(&self) -> f32 {
         (self.tile_size / TILE_SIZE).max(0.5)
     }
 }
 
-/// Computes grid sizing for a given window size. Never returns a tile size
-/// larger than `MAX_TILE_SIZE` — only shrinks to fit.
-///
-/// On Android specifically, Bevy's reported window/camera viewport size used
-/// to get stuck at its compiled-in default (1280x720) instead of the real
-/// device screen size when using `BorderlessFullscreen` — a known platform
-/// limitation of that windowing backend (`android-activity`/`NativeActivity`).
-/// `resolve_screen_metrics` fixed this by waiting for a real `WindowResized`
-/// message instead of trusting the size on the first frame, so Android now
-/// gets the same real-size-based fit as iOS and desktop, capped at the
-/// original design size - no extra platform-specific ceiling needed.
 fn compute_grid_metrics(window_size: Vec2) -> GridMetrics {
     let shortest_side = window_size.x.min(window_size.y);
 
@@ -106,8 +86,6 @@ fn compute_grid_metrics(window_size: Vec2) -> GridMetrics {
 
 #[derive(States, Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 enum GameState {
-    /// Briefly active on startup while we wait to learn the real screen
-    /// size (see `resolve_screen_metrics`), before any UI is spawned.
     #[default]
     Loading,
     Menu,
@@ -165,7 +143,7 @@ pub fn run_app() {
         .init_resource::<MenuMessage>()
         .init_resource::<PendingWin>()
         .init_resource::<HasPlayed>()
-        .insert_resource(BoardState(Board::shuffled(200)))
+        .insert_resource(BoardState(Board::shuffled()))
         .init_state::<GameState>()
         .add_systems(Startup, setup_camera)
         .add_systems(Update, resolve_screen_metrics.run_if(in_state(GameState::Loading)))
@@ -206,8 +184,6 @@ fn setup_camera(mut commands: Commands) {
 fn no_confirm_menu(confirm_roots: Query<(), With<ConfirmMenuRoot>>) -> bool {
     confirm_roots.is_empty()
 }
-
-// ----- Start / win menu -----
 
 fn spawn_menu(mut commands: Commands, message: Res<MenuMessage>, metrics: Res<GridMetrics>) {
     let scale = metrics.ui_scale();
@@ -311,7 +287,7 @@ fn button_system(
                 button.set_changed();
 
                 if has_played.0 {
-                    board.0 = Board::shuffled(200);
+                    board.0 = Board::shuffled();
                 }
                 has_played.0 = true;
 
@@ -336,19 +312,6 @@ fn button_system(
     }
 }
 
-// ----- Tiles -----
-
-/// Waits for a real `WindowResized` message before proceeding — Android
-/// reports an initial placeholder size at startup, then fires a resize
-/// message once the true device screen dimensions are established. Falls
-/// back to whatever the window currently reports after a short timeout,
-/// since some platforms (desktop) may never fire a resize message at all if
-/// the window is already correctly sized from the first frame.
-///
-/// Runs only in `GameState::Loading`, before any menu/tile UI is spawned, so
-/// that everything — tiles, menu buttons, fonts — gets sized from real
-/// screen dimensions from the very first thing the player sees, rather than
-/// spawning once at a guessed size and never re-scaling.
 fn resolve_screen_metrics(
     mut commands: Commands,
     windows: Query<&Window>,
@@ -444,8 +407,6 @@ fn show_tiles(mut tiles: Query<&mut Visibility, With<Tile>>) {
         *visibility = Visibility::Visible;
     }
 }
-
-// ----- In-game corner button + confirm dialog -----
 
 fn spawn_ingame_button(mut commands: Commands, metrics: Res<GridMetrics>) {
     let scale = metrics.ui_scale();
@@ -805,9 +766,6 @@ fn position_for_index(index: usize, metrics: &GridMetrics) -> Vec3 {
     Vec3::new(col * step - offset, offset - row * step, 0.0)
 }
 
-/// `scale` is the same `GridMetrics::ui_scale()` factor used everywhere
-/// else — always <= 1.0, so these px sizes are a maximum that only shrinks
-/// to fit smaller screens, never grows past the original design size.
 fn new_game_button_bundle(scale: f32) -> impl Bundle {
     (
         Button,
