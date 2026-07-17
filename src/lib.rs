@@ -1,5 +1,14 @@
+// `no_std` except under `cargo test`, since the test harness itself needs
+// `std` — this keeps the crate embedded-friendly for real builds (GBA,
+// Playdate) without complicating how tests are run.
+#![cfg_attr(not(test), no_std)]
+
+extern crate alloc;
+
+use alloc::vec::Vec;
+use core::fmt;
+use rand::Rng;
 use rand::seq::SliceRandom;
-use std::fmt;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
@@ -18,7 +27,7 @@ pub struct Board {
 
 impl Board {
     pub fn new() -> Self {
-        let tiles: [u8; 16] = std::array::from_fn(|i| if i < 15 { (i + 1) as u8 } else { 0 });
+        let tiles: [u8; 16] = core::array::from_fn(|i| if i < 15 { (i + 1) as u8 } else { 0 });
         Board { tiles, blank: 15 }
     }
 
@@ -97,11 +106,15 @@ impl Board {
         Ok(())
     }
 
-    pub fn shuffled() -> Self {
-        let mut rng = rand::rng();
-
-        let mut tiles: [u8; 16] = std::array::from_fn(|i| if i < 15 { (i + 1) as u8 } else { 0 });
-        tiles.shuffle(&mut rng);
+    /// Produces a uniformly random *solvable* shuffled board, using the
+    /// caller-supplied RNG. Taking `rng` as a parameter (rather than pulling
+    /// from `rand::rng()` internally) keeps this crate `no_std`-friendly:
+    /// std-based platforms can pass `&mut rand::rng()`, while embedded
+    /// targets without OS entropy can pass a `SmallRng` seeded from their own
+    /// hardware source.
+    pub fn shuffled(rng: &mut impl Rng) -> Self {
+        let mut tiles: [u8; 16] = core::array::from_fn(|i| if i < 15 { (i + 1) as u8 } else { 0 });
+        tiles.shuffle(rng);
 
         let blank = tiles.iter().position(|&t| t == 0).expect("exactly one blank");
         let mut board = Board { tiles, blank };
@@ -201,8 +214,9 @@ mod tests {
 
     #[test]
     fn shuffled_is_always_solvable() {
+        let mut rng = rand::rng();
         for _ in 0..1000 {
-            assert!(Board::shuffled().is_solvable());
+            assert!(Board::shuffled(&mut rng).is_solvable());
         }
     }
 

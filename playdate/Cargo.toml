@@ -1,0 +1,43 @@
+cargo-features = ["edition2024"]
+
+[package]
+name = "fifteen-playdate"
+version = "0.1.0"
+edition = "2024"
+description = "Fifteen puzzle for the Playdate console"
+
+[lib]
+crate-type = ["dylib", "staticlib"]
+
+[dependencies]
+fifteen = { path = ".." }
+# `SmallRng`/`SeedableRng` work with no features enabled - no OS entropy on
+# Playdate, so we seed it ourselves from the system clock instead of using
+# `rand::rng()` (which needs `std`/`getrandom`).
+rand = { version = "0.10.2", default-features = false }
+
+[dependencies.playdate]
+path = "../../../playdate/api/playdate"
+
+[package.metadata.playdate]
+name = "Fifteen Puzzle"
+author = "Joel Buchheim Moore"
+bundle-id = "com.joelbuchheimmoore.fifteenpuzzle"
+description = "The classic sliding puzzle"
+# Directory (inside the built .pdx) holding the launcher card.png (350x155)
+# and icon.png (32x32) - must line up with the left-hand side of the assets
+# table below, since that's what actually controls the in-package path.
+image-path = "launcher"
+
+[package.metadata.playdate.assets]
+# Exact, glob-free file-to-file mappings so there's no ambiguity about where
+# things land. Two things bit us before switching to this: the list form
+# (`assets = ["assets/**/*.png"]`) doesn't strip the "assets/" prefix, landing
+# at "assets/launcher/" instead of "launcher/"; and the table form with a
+# glob (`"launcher/" = "assets/launcher/*.png"`) nests the *entire* source
+# path under the destination instead of just the matched filename, landing at
+# "launcher/assets/launcher/" - three levels deeper than `image-path` below
+# expects. Either way the OS silently falls back to its default text-only
+# launcher card instead of erroring, which is what made this hard to spot.
+"launcher/card.png" = "assets/launcher/card.png"
+"launcher/icon.png" = "assets/launcher/icon.png"

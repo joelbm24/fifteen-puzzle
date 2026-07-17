@@ -12,6 +12,9 @@ env_files = [
 IOS_XCODE_PROJECT_DIR = { value = "ios/FifteenPuzzle", condition = { env_not_set = ["IOS_XCODE_PROJECT_DIR"] } }
 IOS_SCHEME = "FifteenPuzzle"
 IOS_BUNDLE_ID = "com.joelbuchheimmoore.FifteenPuzzle"
+# Path to your local boozook/playdate fork, relative to this repo - override
+# in .env (PLAYDATE_FORK_DIR=...) if your checkout isn't a sibling of this one.
+PLAYDATE_FORK_DIR = { value = "../../playdate", condition = { env_not_set = ["PLAYDATE_FORK_DIR"] } }
 
 [tasks.desktop]
 description = "Run the desktop build (debug)"
@@ -202,6 +205,46 @@ description = "Build a Debian (.deb) package. Must be run on Linux - see README.
 dependencies = ["linux-deb-tool"]
 command = "cargo"
 args = ["deb", "-p", "fifteen-gui"]
+
+[tasks.playdate-tool]
+description = "Install cargo-playdate from your local boozook/playdate fork (set PLAYDATE_FORK_DIR in .env if it's not a sibling of this repo)"
+script_runner = "@shell"
+script = '''
+set -e
+if command -v cargo-playdate > /dev/null; then
+    echo "cargo-playdate already installed"
+else
+    if [ ! -d "${PLAYDATE_FORK_DIR}/cargo" ]; then
+        echo "No boozook/playdate fork found at ${PLAYDATE_FORK_DIR}. Set PLAYDATE_FORK_DIR in .env."
+        exit 1
+    fi
+    cd ${PLAYDATE_FORK_DIR}/cargo
+    cargo install --path .
+fi
+'''
+
+[tasks.playdate-sim]
+description = "Build and run the Playdate crate in the Simulator (debug). Needs nightly - your fork's own dependencies (e.g. the color crate) use unstable features unconditionally, and this workspace has no rust-toolchain.toml of its own to pick that up automatically."
+dependencies = ["playdate-tool"]
+toolchain = "nightly"
+command = "cargo"
+args = ["playdate", "run", "-p", "fifteen-playdate"]
+
+[tasks.playdate-target]
+description = "Install the rustup bits needed for a device build: the Cortex-M7 target triple, plus rust-src (the build uses -Zbuild-std=core,alloc)"
+script_runner = "@shell"
+script = '''
+set -e
+rustup run nightly rustup target add thumbv7em-none-eabihf
+rustup run nightly rustup component add rust-src
+'''
+
+[tasks.playdate-device]
+description = "Build, install, and run the Playdate crate on a connected device (debug). Playdate must be connected over USB and awake so it mounts as a drive. If you have more than one connected, target a specific one with PLAYDATE_SERIAL_DEVICE=<serial> cargo make playdate-device."
+dependencies = ["playdate-tool", "playdate-target"]
+toolchain = "nightly"
+command = "cargo"
+args = ["playdate", "run", "-p", "fifteen-playdate", "--device"]
 
 [tasks.linux-deb-install]
 description = "Build and install the Debian package with dpkg (needs sudo)"

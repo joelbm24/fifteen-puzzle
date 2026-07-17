@@ -1,15 +1,22 @@
+cargo-features = ["edition2024"]
+
 [package]
 name = "fifteen"
 version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = ["cli","gui"]
+members = ["cli","gui","playdate"]
 
 [dependencies]
-getrandom = "0.4.3"
+rand = { version = "0.10.2", default-features = false }
+thiserror = { version = "2.0.18", default-features = false }
+
+# Re-enables rand's default features (std, thread_rng, etc.) only for
+# `cargo test` builds, via Cargo's feature unification — production/no_std
+# builds are unaffected since dev-dependencies aren't included in them.
+[dev-dependencies]
 rand = "0.10.2"
-thiserror = "2.0.18"
 
 [profile.dev]
 opt-level = 1

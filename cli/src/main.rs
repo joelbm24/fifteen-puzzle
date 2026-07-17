@@ -51,7 +51,8 @@ fn restore_terminal() -> io::Result<()> {
 }
 
 fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
-    let mut board = Board::shuffled();
+    let mut rng = rand::rng();
+    let mut board = Board::shuffled(&mut rng);
 
     loop {
         terminal.draw(|frame| render_board(frame, frame.area(), &board))?;
@@ -60,7 +61,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
             match wait_for_quit_or_new_game()? {
                 PostWinAction::Quit => break,
                 PostWinAction::NewGame => {
-                    board = Board::shuffled();
+                    board = Board::shuffled(&mut rng);
                     continue;
                 }
             }
@@ -81,7 +82,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
                     KeyCode::Right => Some(Move::Left),
                     KeyCode::Char('q') | KeyCode::Esc => break,
                     KeyCode::Char('n') => {
-                        board = Board::shuffled();
+                        board = Board::shuffled(&mut rng);
                         continue;
                     }
                     _ => None,

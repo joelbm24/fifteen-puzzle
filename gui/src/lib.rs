@@ -143,7 +143,7 @@ pub fn run_app() {
         .init_resource::<MenuMessage>()
         .init_resource::<PendingWin>()
         .init_resource::<HasPlayed>()
-        .insert_resource(BoardState(Board::shuffled()))
+        .insert_resource(BoardState(Board::shuffled(&mut rand::rng())))
         .init_state::<GameState>()
         .add_systems(Startup, setup_camera)
         .add_systems(Update, resolve_screen_metrics.run_if(in_state(GameState::Loading)))
@@ -287,7 +287,7 @@ fn button_system(
                 button.set_changed();
 
                 if has_played.0 {
-                    board.0 = Board::shuffled();
+                    board.0 = Board::shuffled(&mut rand::rng());
                 }
                 has_played.0 = true;
 
@@ -334,14 +334,6 @@ fn resolve_screen_metrics(
     };
 
     let metrics = compute_grid_metrics(size);
-    bevy::log::info!(
-        "GRID DEBUG: resolved size = {:?}, tile_size = {}, gap = {}, border = {}, ui_scale = {}",
-        size,
-        metrics.tile_size,
-        metrics.gap,
-        metrics.border,
-        metrics.ui_scale(),
-    );
     spawn_tiles_with_metrics(&mut commands, &board, &metrics);
     commands.insert_resource(metrics);
     next_state.set(GameState::Menu);
@@ -750,7 +742,7 @@ fn show_win_when_settled(
 
     if all_settled {
         pending_win.0 = false;
-        menu_message.text = "You win!".to_string();
+        menu_message.text = "Solved!".to_string();
         menu_message.is_win = true;
         next_state.set(GameState::Menu);
     }
