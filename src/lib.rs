@@ -73,7 +73,7 @@ impl Board {
 
     pub fn slide_toward(&mut self, target: usize) -> Result<(), MoveError> {
         if target == self.blank {
-            return Ok(()); // clicked the blank itself, nothing to do
+            return Ok(());
         }
 
         let (blank_row, blank_col) = (self.blank / 4, self.blank % 4);
@@ -88,7 +88,7 @@ impl Board {
         } else if blank_col == target_col {
             if target_row < blank_row { Move::Up } else { Move::Down }
         } else {
-            return Err(MoveError::IllegalMove); // not in the same row or column — illegal click
+            return Err(MoveError::IllegalMove);
         };
 
         while self.blank != target {
@@ -98,16 +98,6 @@ impl Board {
         Ok(())
     }
 
-    /// Produces a uniformly random *solvable* shuffled board.
-    ///
-    /// Only half of all `16!` tile arrangements are actually reachable by legal
-    /// slides - this is the classic 15-puzzle parity invariant (the same fact
-    /// behind Sam Loyd's famous unsolvable "14-15" swap). Rather than replaying
-    /// a long random walk of legal moves from the solved state (which is only
-    /// *approximately* uniform, relying on the walk having mixed well), this
-    /// generates a uniformly random permutation directly and fixes it up if it
-    /// happens to land on the unsolvable half - giving an exactly uniform
-    /// distribution over solvable boards in one pass.
     pub fn shuffled() -> Self {
         let mut rng = rand::rng();
 
@@ -118,8 +108,6 @@ impl Board {
         let mut board = Board { tiles, blank };
 
         if !board.is_solvable() {
-            // Swapping any two non-blank tiles flips the permutation's parity,
-            // which flips solvability, without needing to touch the blank.
             let mut non_blank_indices = board.tiles.iter().enumerate().filter(|&(_, &t)| t != 0).map(|(i, _)| i);
             let i = non_blank_indices.next().expect("15 non-blank tiles");
             let j = non_blank_indices.next().expect("15 non-blank tiles");
