@@ -1,0 +1,20 @@
+# Needed for the same reason as the other members' manifests - the
+# cargo-playdate tool's embedded old `cargo` library parses every manifest in
+# this workspace (since it's all one Cargo workspace) and doesn't understand
+# edition2024 as stable without this shim, even though it's unrelated to GBA.
+cargo-features = ["edition2024"]
+
+[package]
+name = "fifteen-gba"
+version = "0.1.0"
+edition = "2024"
+description = "Fifteen puzzle for the Game Boy Advance"
+
+[dependencies]
+fifteen = { path = ".." }
+agb = "0.24.0"
+# GBA has no OS entropy source, same situation as Playdate - `agb::rng` gives
+# a fixed seed every boot on its own, so we seed a `SmallRng` (which does
+# implement `rand::Rng`, what `Board::shuffled` needs) from a value that
+# varies per boot instead. See the frame-counter comment in main.rs.
+rand = { version = "0.10.2", default-features = false }

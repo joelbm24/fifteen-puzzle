@@ -1,0 +1,25 @@
+# Scoped to this directory - cargo's config discovery walks up from the
+# current directory, so this only takes effect when cargo is invoked from
+# inside `gba/` (which is how the Makefile.toml tasks do it, `cd gba && cargo
+# ...`, same pattern as the existing `web`/`web-serve`/`ios` tasks). That
+# keeps the GBA-only target/build-std settings from leaking into the rest of
+# the workspace (cli/gui/playdate), which build for entirely different
+# targets.
+
+[unstable]
+# GBA has no std for its target, so core/alloc get built from source.
+build-std = ["core", "alloc"]
+build-std-features = ["compiler-builtins-mem"]
+
+[build]
+# agb doesn't ship as a built-in rustc target - it's a Tier-3 ARM7TDMI/thumb
+# target that only exists via -Z build-std.
+target = "thumbv4t-none-eabi"
+
+[target.thumbv4t-none-eabi]
+runner = ["mgba", "-C", "logToStdout=1"]
+rustflags = [
+    "-Clink-arg=-Tgba.ld",
+    "-Ctarget-cpu=arm7tdmi",
+    "-Cforce-frame-pointers=yes",
+]

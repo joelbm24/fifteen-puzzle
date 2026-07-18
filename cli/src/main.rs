@@ -21,8 +21,8 @@ const TILE_HEIGHT: u16 = 5; // 1 border + 3 content lines + 1 border — number 
 const GRID_SIZE: u16 = 4;
 
 // Roughly matches the GUI's tile colors.
-const ODD_TILE_COLOR: Color = Color::Rgb(0x00, 0x47, 0xAB);
-const EVEN_TILE_COLOR: Color = Color::Rgb(0xCC, 0x55, 0x00);
+const ODD_TILE_COLOR: Color = Color::Rgb(0xCC, 0x55, 0x00);
+const EVEN_TILE_COLOR: Color = Color::Rgb(0x00, 0x47, 0xAB);
 
 fn main() -> io::Result<()> {
     let mut terminal = init_terminal()?;
