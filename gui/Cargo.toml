@@ -3,6 +3,7 @@ name = "fifteen-gui"
 version = "0.1.0"
 edition = "2024"
 description = "A sliding fifteen puzzle"
+license.workspace = true
 
 [lib]
 name = "fifteen_gui"

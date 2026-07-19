@@ -2,9 +2,13 @@
 name = "fifteen"
 version = "0.1.0"
 edition = "2024"
+license.workspace = true
 
 [workspace]
 members = ["cli","gui","playdate","gba"]
+
+[workspace.package]
+license = "Apache-2.0"
 
 [dependencies]
 rand = { version = "0.10.2", default-features = false }

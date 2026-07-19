@@ -3,6 +3,7 @@ name = "fifteen-gba"
 version = "0.1.0"
 edition = "2024"
 description = "Fifteen puzzle for the Game Boy Advance"
+license.workspace = true
 
 [dependencies]
 fifteen = { path = ".." }
