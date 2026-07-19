@@ -249,6 +249,14 @@ fn spawn_menu(mut commands: Commands, message: Res<MenuMessage>, metrics: Res<Gr
                     TextColor(Color::WHITE),
                 ),
                 new_game_button_bundle(scale),
+                (
+                    Text::new("By Joel Buchheim-Moore"),
+                    TextFont {
+                        font_size: FontSize::Px(18.0 * scale),
+                        ..default()
+                    },
+                    TextColor(Color::srgba(1.0, 1.0, 1.0, 0.65)),
+                ),
             ],
         ));
     }

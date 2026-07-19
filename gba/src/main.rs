@@ -7,8 +7,10 @@ use alloc::vec::Vec;
 
 use agb::Gba;
 use agb::display::GraphicsFrame;
+use agb::display::Palette16;
 use agb::display::Rgb15;
-use agb::display::object::{Object, Sprite};
+use agb::display::font::{AlignmentKind, Font, Layout, LayoutSettings, ObjectTextRenderer};
+use agb::display::object::{Object, Size, Sprite};
 use agb::input::{Button, ButtonController};
 
 use fifteen::Board;
@@ -40,6 +42,20 @@ agb::include_aseprite!(
     32x32 "gfx/paused_banner.png",
     "gfx/arrow.png",
 );
+
+// A real pixel/bitmap-style font (M+ Font Project's "PixelMplus10", designed
+// to render crisply at exactly 10px, unlike gfx/font.ttf which is a smooth
+// DejaVu Sans that looked jagged/blotchy once rasterized this small) used
+// here directly (via agb's built-in text renderer) for the dynamic
+// "By Joel Buchheim-Moore" credit line so it doesn't need its own pre-baked
+// image asset.
+static CREDIT_FONT: Font = agb::include_font!("gfx/pixel_mplus10.ttf", 10);
+
+static CREDIT_PALETTE: &Palette16 = {
+    let mut palette = [Rgb15::BLACK; 16];
+    palette[1] = Rgb15::WHITE;
+    &Palette16::new(palette)
+};
 
 fn tile_sprite(value: u8) -> &'static Sprite {
     match value {
@@ -76,6 +92,31 @@ const BOARD_PIXELS: i32 = GRID_SIZE * TILE + (GRID_SIZE - 1) * GAP;
 fn reshuffle(board: &mut Board, seed: u64) {
     let mut rng = SmallRng::seed_from_u64(seed);
     *board = Board::shuffled(&mut rng);
+}
+
+/// Draws the "By Joel Buchheim-Moore" credit line, horizontally centered,
+/// with its top edge at `y`.
+fn show_credit_line(frame: &mut GraphicsFrame<'_>, objects: &mut Vec<Object>, y: i32) {
+    // Size must be strictly larger than the font's rendered glyph bounding
+    // box (ascenders/descenders included), not just the nominal font size -
+    // agb's own doc examples pair an 8px font with a 16x16 sprite size for
+    // exactly this reason; S8x8 panics with "y too big for sprite size".
+    // PixelMplus10's ascent+descent at 10px comes to ~11px, comfortably
+    // inside 16x16.
+    let renderer = ObjectTextRenderer::new(CREDIT_PALETTE.into(), Size::S16x16);
+    let layout = Layout::new(
+        "By Joel Buchheim-Moore",
+        &CREDIT_FONT,
+        &LayoutSettings::new()
+            .with_max_line_length(agb::display::WIDTH as i32)
+            .with_alignment(AlignmentKind::Centre),
+    );
+
+    for letter_group in layout {
+        let obj = renderer.show(&letter_group, (0, y));
+        obj.show(frame);
+        objects.push(obj);
+    }
 }
 
 fn show_grid(
@@ -235,18 +276,17 @@ fn main(mut gba: Gba) -> ! {
                     60,
                 );
 
-                // Blink roughly every half second (30 frames at 60fps).
-                if (frame_count / 30) % 2 == 0 {
-                    show_grid(
-                        &mut frame,
-                        &mut objects,
-                        |i| sprites::PRESS_START.sprite(i),
-                        4,
-                        1,
-                        56,
-                        112,
-                    );
-                }
+                show_grid(
+                    &mut frame,
+                    &mut objects,
+                    |i| sprites::PRESS_START.sprite(i),
+                    4,
+                    1,
+                    56,
+                    104,
+                );
+
+                show_credit_line(&mut frame, &mut objects, 140);
             }
             Screen::Playing | Screen::Paused => {
                 if screen == Screen::Playing && board.is_solved() {

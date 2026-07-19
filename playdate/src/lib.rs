@@ -2,8 +2,6 @@
 
 extern crate alloc;
 
-// `println!`/`ll_symbols!` etc. are macros re-exported through `playdate`.
-#[macro_use]
 extern crate playdate as pd;
 
 use alloc::string::ToString;
@@ -32,6 +30,12 @@ enum InputStyle {
     Arrows,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Screen {
+    Title,
+    Playing,
+}
+
 const GRID_SIZE: i32 = 4;
 const TILE: i32 = 50;
 const GAP: i32 = 4;
@@ -40,6 +44,7 @@ const BOARD_PIXELS: i32 = GRID_SIZE * TILE + (GRID_SIZE - 1) * GAP;
 const BOLD_FONT_PATH: &str = "/System/Fonts/Asheville-Sans-14-Bold.pft";
 
 struct State {
+    screen: Screen,
     board: Board,
     bold_font: Option<Font>,
     input_style_item: Option<OptionsMenuItem>,
@@ -49,7 +54,6 @@ struct State {
 
 impl State {
     fn new() -> Self {
-        let mut rng = SmallRng::seed_from_u64(clock_seed());
         let bold_font = text::load_font(BOLD_FONT_PATH).ok();
         let input_style_item = OptionsMenuItem::new("Input", ["Arrows", "Cursor"], None, ()).ok();
         if let Some(item) = &input_style_item {
@@ -57,7 +61,8 @@ impl State {
         }
         let new_game_item = SimpleMenuItem::new("New Game", Some(|requested: &mut bool| *requested = true), false).ok();
         Self {
-            board: Board::shuffled(&mut rng),
+            screen: Screen::Title,
+            board: Board::new(), // starts solved; shuffled once the player presses A on the title screen
             bold_font,
             input_style_item,
             new_game_item,
@@ -99,23 +104,36 @@ fn handle_input(state: &mut State) {
             if *requested {
                 *requested = false;
                 reshuffle(&mut state.board);
+                state.cursor = 0;
+                state.screen = Screen::Playing;
                 return;
             }
         }
     }
 
-    if state.board.is_solved() {
-        // Board is solved - don't let normal moves keep changing it. Only
-        // the A button does anything here, starting a new game.
-        if Buttons::Cached().get().pushed.a() {
-            reshuffle(&mut state.board);
+    match state.screen {
+        Screen::Title => {
+            if Buttons::Cached().get().pushed.a() {
+                reshuffle(&mut state.board);
+                state.cursor = 0;
+                state.screen = Screen::Playing;
+            }
         }
-        return;
-    }
+        Screen::Playing => {
+            if state.board.is_solved() {
+                // Board is solved - don't let normal moves keep changing it. Only
+                // the A button does anything here, starting a new game.
+                if Buttons::Cached().get().pushed.a() {
+                    reshuffle(&mut state.board);
+                }
+                return;
+            }
 
-    match state.input_style() {
-        InputStyle::Arrows => handle_arrow_input(&mut state.board),
-        InputStyle::Cursor => handle_cursor_input(&mut state.board, &mut state.cursor),
+            match state.input_style() {
+                InputStyle::Arrows => handle_arrow_input(&mut state.board),
+                InputStyle::Cursor => handle_cursor_input(&mut state.board, &mut state.cursor),
+            }
+        }
     }
 }
 
@@ -173,78 +191,204 @@ impl Update for State {
             gfx.set_font(font);
         }
 
-        let origin_x = (LCD_COLUMNS as i32 - BOARD_PIXELS) / 2;
-        let origin_y = (LCD_ROWS as i32 - BOARD_PIXELS) / 2;
-
-        const GRID_PADDING: i32 = 8;
-        const GRID_BORDER: i32 = 2;
-        for i in 1..=GRID_BORDER {
-            gfx.draw_rect(
-                origin_x - GRID_PADDING - i,
-                origin_y - GRID_PADDING - i,
-                BOARD_PIXELS + (GRID_PADDING + i) * 2,
-                BOARD_PIXELS + (GRID_PADDING + i) * 2,
-                Color::BLACK.into(),
-            );
-        }
-
-        for (index, &value) in self.board.tiles().iter().enumerate() {
-            if value == 0 {
-                continue; // blank tile has no visual
-            }
-
-            let row = (index / GRID_SIZE as usize) as i32;
-            let col = (index % GRID_SIZE as usize) as i32;
-            let x = origin_x + col * (TILE + GAP);
-            let y = origin_y + row * (TILE + GAP);
-
-            // Odd tiles get a solid black fill with white (inverted) text;
-            // even tiles stay plain white with black text.
-            let is_odd = value % 2 == 1;
-            if is_odd {
-                gfx.fill_rect(x, y, TILE, TILE, Color::BLACK.into());
-            }
-            gfx.draw_rect(x, y, TILE, TILE, Color::BLACK.into());
-
-            // Measure the actual rendered width so 1- and 2-digit numbers
-            // both land centered, rather than guessing a fixed digit width.
-            let label = value.to_string();
-            let text_width = gfx
-                .get_text_width(&label, self.bold_font.as_ref(), 0)
-                .unwrap_or(TILE / 2);
-            let text_x = x + (TILE - text_width) / 2;
-            let text_y = y + TILE / 2 - 8;
-
-            if is_odd {
-                gfx.set_draw_mode(BitmapDrawMode::kDrawModeInverted);
-            }
-            let _ = gfx.draw_text(label, text_x, text_y);
-            if is_odd {
-                gfx.set_draw_mode(BitmapDrawMode::kDrawModeCopy);
-            }
-        }
-
-        if self.input_style() == InputStyle::Cursor {
-            let row = (self.cursor / GRID_SIZE as usize) as i32;
-            let col = (self.cursor % GRID_SIZE as usize) as i32;
-            let x = origin_x + col * (TILE + GAP);
-            let y = origin_y + row * (TILE + GAP);
-
-            for i in 1..=3 {
-                gfx.draw_rect(x - i, y - i, TILE + i * 2, TILE + i * 2, Color::BLACK.into());
-            }
-
-            gfx.draw_rect(x + 1, y + 1, TILE - 2, TILE - 2, Color::WHITE.into());
-        }
-
-        // Drawn last so it overlays the board rather than getting covered by
-        // the tiles.
-        if self.board.is_solved() {
-            draw_solved_banner(&gfx, self.bold_font.as_ref());
+        match self.screen {
+            Screen::Title => draw_title_screen(&gfx, self.bold_font.as_ref()),
+            Screen::Playing => draw_playing_screen(&gfx, self),
         }
 
         UpdateCtrl::Continue
     }
+}
+
+fn draw_playing_screen(gfx: &Graphics, state: &State) {
+    let origin_x = (LCD_COLUMNS as i32 - BOARD_PIXELS) / 2;
+    let origin_y = (LCD_ROWS as i32 - BOARD_PIXELS) / 2;
+
+    const GRID_PADDING: i32 = 8;
+    const GRID_BORDER: i32 = 2;
+    for i in 1..=GRID_BORDER {
+        gfx.draw_rect(
+            origin_x - GRID_PADDING - i,
+            origin_y - GRID_PADDING - i,
+            BOARD_PIXELS + (GRID_PADDING + i) * 2,
+            BOARD_PIXELS + (GRID_PADDING + i) * 2,
+            Color::BLACK.into(),
+        );
+    }
+
+    for (index, &value) in state.board.tiles().iter().enumerate() {
+        if value == 0 {
+            continue; // blank tile has no visual
+        }
+
+        let row = (index / GRID_SIZE as usize) as i32;
+        let col = (index % GRID_SIZE as usize) as i32;
+        let x = origin_x + col * (TILE + GAP);
+        let y = origin_y + row * (TILE + GAP);
+
+        // Odd tiles get a solid black fill with white (inverted) text;
+        // even tiles stay plain white with black text.
+        let is_odd = value % 2 == 1;
+        if is_odd {
+            gfx.fill_rect(x, y, TILE, TILE, Color::BLACK.into());
+        }
+        gfx.draw_rect(x, y, TILE, TILE, Color::BLACK.into());
+
+        // Measure the actual rendered width so 1- and 2-digit numbers
+        // both land centered, rather than guessing a fixed digit width.
+        let label = value.to_string();
+        let text_width = gfx
+            .get_text_width(&label, state.bold_font.as_ref(), 0)
+            .unwrap_or(TILE / 2);
+        let text_x = x + (TILE - text_width) / 2;
+        let text_y = y + TILE / 2 - 8;
+
+        if is_odd {
+            let _ = gfx.set_draw_mode(BitmapDrawMode::kDrawModeInverted);
+        }
+        let _ = gfx.draw_text(label, text_x, text_y);
+        if is_odd {
+            let _ = gfx.set_draw_mode(BitmapDrawMode::kDrawModeCopy);
+        }
+    }
+
+    if state.input_style() == InputStyle::Cursor {
+        let row = (state.cursor / GRID_SIZE as usize) as i32;
+        let col = (state.cursor % GRID_SIZE as usize) as i32;
+        let x = origin_x + col * (TILE + GAP);
+        let y = origin_y + row * (TILE + GAP);
+
+        for i in 1..=3 {
+            gfx.draw_rect(x - i, y - i, TILE + i * 2, TILE + i * 2, Color::BLACK.into());
+        }
+
+        gfx.draw_rect(x + 1, y + 1, TILE - 2, TILE - 2, Color::WHITE.into());
+    }
+
+    // Drawn last so it overlays the board rather than getting covered by
+    // the tiles.
+    if state.board.is_solved() {
+        draw_solved_banner(gfx, state.bold_font.as_ref());
+    }
+}
+
+/// Draws a small 2x2 preview of numbered tiles, centered horizontally, as a
+/// mini logo above the title text. Mirrors the real tile styling (odd tiles
+/// filled black with inverted white text) at a smaller size.
+fn draw_mini_logo(gfx: &Graphics, font: Option<&Font>, top_y: i32) -> i32 {
+    const MINI_TILE: i32 = 28;
+    const MINI_GAP: i32 = 4;
+
+    let board_w = MINI_TILE * 2 + MINI_GAP;
+    let board_h = MINI_TILE * 2 + MINI_GAP;
+    let origin_x = (LCD_COLUMNS as i32 - board_w) / 2;
+
+    for (i, &value) in [1u8, 2, 3, 4].iter().enumerate() {
+        let row = (i / 2) as i32;
+        let col = (i % 2) as i32;
+        let x = origin_x + col * (MINI_TILE + MINI_GAP);
+        let y = top_y + row * (MINI_TILE + MINI_GAP);
+
+        let is_odd = value % 2 == 1;
+        if is_odd {
+            gfx.fill_rect(x, y, MINI_TILE, MINI_TILE, Color::BLACK.into());
+        }
+        gfx.draw_rect(x, y, MINI_TILE, MINI_TILE, Color::BLACK.into());
+
+        let label = value.to_string();
+        let text_width = gfx.get_text_width(&label, font, 0).unwrap_or(MINI_TILE / 2);
+        let text_x = x + (MINI_TILE - text_width) / 2;
+        let text_y = y + MINI_TILE / 2 - 8;
+
+        if is_odd {
+            let _ = gfx.set_draw_mode(BitmapDrawMode::kDrawModeInverted);
+        }
+        let _ = gfx.draw_text(label, text_x, text_y);
+        if is_odd {
+            let _ = gfx.set_draw_mode(BitmapDrawMode::kDrawModeCopy);
+        }
+    }
+
+    board_h
+}
+
+/// Draws `text` scaled up by `scale`, centered horizontally, with its top
+/// edge at `y`. Uses the same "render small, then draw_scaled" trick as
+/// [`draw_solved_banner`], since the Playdate API has no built-in font
+/// scaling. Returns the scaled line height so callers can stack lines.
+fn draw_scaled_line_centered(gfx: &Graphics, font: Option<&Font>, text: &str, scale: i32, y: i32) -> i32 {
+    let text_w = gfx.get_text_width(text, font, 0).unwrap_or(60).max(1);
+    let font_h = font.map(|f| gfx.get_font_height(f) as i32).unwrap_or(16).max(1);
+    let scaled_w = text_w * scale;
+    let scaled_h = font_h * scale;
+
+    let bmp_result: Result<Bitmap, _> = Bitmap::new(text_w, font_h, Color::WHITE);
+    if let Ok(bmp) = bmp_result {
+        push_context(&bmp);
+        if let Some(font) = font {
+            gfx.set_font(font);
+        }
+        let _ = gfx.draw_text(text, 0, 0);
+        pop_context();
+
+        let x = (LCD_COLUMNS as i32 - scaled_w) / 2;
+        bmp.draw_scaled(x, y, scale as _, scale as _);
+    }
+
+    scaled_h
+}
+
+/// Draws the "Press A to start" hint, styled like the "New Game" hint chip on
+/// the SOLVED! banner but inverted (black chip, white A) to read correctly
+/// against the title screen's plain white background.
+fn draw_start_hint(gfx: &Graphics, font: Option<&Font>, y: i32) {
+    const CHIP_DIAMETER: i32 = 20;
+    const GROUP_GAP: i32 = 8;
+
+    let font_h = font.map(|f| gfx.get_font_height(f) as i32).unwrap_or(16).max(1);
+    let hint_label = "Press A to start";
+    let hint_text_w = gfx.get_text_width(hint_label, font, 0).unwrap_or(120);
+    let hint_row_w = CHIP_DIAMETER + GROUP_GAP + hint_text_w;
+    let hint_x = (LCD_COLUMNS as i32 - hint_row_w) / 2;
+
+    gfx.fill_ellipse(hint_x, y, CHIP_DIAMETER, CHIP_DIAMETER, 0., 360., Color::BLACK.into());
+
+    let a_w = gfx.get_text_width("A", font, 0).unwrap_or(6);
+    let a_x = hint_x + (CHIP_DIAMETER - a_w) / 2;
+    let a_y = y + (CHIP_DIAMETER - font_h) / 2;
+
+    let _ = gfx.set_draw_mode(BitmapDrawMode::kDrawModeInverted);
+    let _ = gfx.draw_text("A", a_x, a_y);
+    let _ = gfx.set_draw_mode(BitmapDrawMode::kDrawModeCopy);
+
+    let text_x = hint_x + CHIP_DIAMETER + GROUP_GAP;
+    let text_y = y + (CHIP_DIAMETER - font_h) / 2;
+    let _ = gfx.draw_text(hint_label, text_x, text_y);
+}
+
+fn draw_title_screen(gfx: &Graphics, font: Option<&Font>) {
+    const TITLE_SCALE: i32 = 2;
+    const TOP_MARGIN: i32 = 20;
+
+    let logo_h = draw_mini_logo(gfx, font, TOP_MARGIN);
+
+    let title_y = TOP_MARGIN + logo_h + 14;
+    let title_h = draw_scaled_line_centered(gfx, font, "FIFTEEN PUZZLE", TITLE_SCALE, title_y);
+
+    draw_start_hint(gfx, font, title_y + title_h + 20);
+    draw_credit_line(gfx, font);
+}
+
+/// Draws the "By Joel Buchheim-Moore" credit line, centered near the bottom
+/// of the title screen, at the font's natural (unscaled) size.
+fn draw_credit_line(gfx: &Graphics, font: Option<&Font>) {
+    let label = "By Joel Buchheim-Moore";
+    let text_w = gfx.get_text_width(label, font, 0).unwrap_or(150);
+    let font_h = font.map(|f| gfx.get_font_height(f) as i32).unwrap_or(16);
+
+    let x = (LCD_COLUMNS as i32 - text_w) / 2;
+    let y = LCD_ROWS as i32 - font_h - 14;
+    let _ = gfx.draw_text(label, x, y);
 }
 
 fn draw_solved_banner(gfx: &Graphics, font: Option<&Font>) {
@@ -275,9 +419,9 @@ fn draw_solved_banner(gfx: &Graphics, font: Option<&Font>) {
         if let Some(font) = font {
             gfx.set_font(font);
         }
-        gfx.set_draw_mode(BitmapDrawMode::kDrawModeInverted);
+        let _ = gfx.set_draw_mode(BitmapDrawMode::kDrawModeInverted);
         let _ = gfx.draw_text(label, 0, 0);
-        gfx.set_draw_mode(BitmapDrawMode::kDrawModeCopy);
+        let _ = gfx.set_draw_mode(BitmapDrawMode::kDrawModeCopy);
         pop_context();
 
         let x = (LCD_COLUMNS as i32 - scaled_w) / 2;
@@ -305,9 +449,9 @@ fn draw_solved_banner(gfx: &Graphics, font: Option<&Font>) {
 
     let text_x = hint_x + CHIP_DIAMETER + GROUP_GAP;
     let text_y = hint_y + (CHIP_DIAMETER - font_h) / 2;
-    gfx.set_draw_mode(BitmapDrawMode::kDrawModeInverted);
+    let _ = gfx.set_draw_mode(BitmapDrawMode::kDrawModeInverted);
     let _ = gfx.draw_text(hint_label, text_x, text_y);
-    gfx.set_draw_mode(BitmapDrawMode::kDrawModeCopy);
+    let _ = gfx.set_draw_mode(BitmapDrawMode::kDrawModeCopy);
 }
 
 #[unsafe(no_mangle)]

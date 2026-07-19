@@ -1,9 +1,3 @@
-# Needed for the same reason as the other members' manifests - the
-# cargo-playdate tool's embedded old `cargo` library parses every manifest in
-# this workspace (since it's all one Cargo workspace) and doesn't understand
-# edition2024 as stable without this shim, even though it's unrelated to GBA.
-cargo-features = ["edition2024"]
-
 [package]
 name = "fifteen-gba"
 version = "0.1.0"

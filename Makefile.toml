@@ -12,9 +12,6 @@ env_files = [
 IOS_XCODE_PROJECT_DIR = { value = "ios/FifteenPuzzle", condition = { env_not_set = ["IOS_XCODE_PROJECT_DIR"] } }
 IOS_SCHEME = "FifteenPuzzle"
 IOS_BUNDLE_ID = "com.joelbuchheimmoore.FifteenPuzzle"
-# Path to your local boozook/playdate fork, relative to this repo - override
-# in .env (PLAYDATE_FORK_DIR=...) if your checkout isn't a sibling of this one.
-PLAYDATE_FORK_DIR = { value = "../../playdate", condition = { env_not_set = ["PLAYDATE_FORK_DIR"] } }
 
 [tasks.desktop]
 description = "Run the desktop build (debug)"
@@ -207,19 +204,15 @@ command = "cargo"
 args = ["deb", "-p", "fifteen-gui"]
 
 [tasks.playdate-tool]
-description = "Install cargo-playdate from your local boozook/playdate fork (set PLAYDATE_FORK_DIR in .env if it's not a sibling of this repo)"
+description = "Install cargo-playdate from Joel's playdate fork on GitHub"
+toolchain = "nightly"
 script_runner = "@shell"
 script = '''
 set -e
 if command -v cargo-playdate > /dev/null; then
     echo "cargo-playdate already installed"
 else
-    if [ ! -d "${PLAYDATE_FORK_DIR}/cargo" ]; then
-        echo "No boozook/playdate fork found at ${PLAYDATE_FORK_DIR}. Set PLAYDATE_FORK_DIR in .env."
-        exit 1
-    fi
-    cd ${PLAYDATE_FORK_DIR}/cargo
-    cargo install --path .
+    cargo install --git https://github.com/joelbm24/playdate --branch main cargo-playdate
 fi
 '''
 

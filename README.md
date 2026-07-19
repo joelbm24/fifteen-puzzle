@@ -153,11 +153,21 @@ cargo make linux-deb-install
 
 ## Playdate
 
-Requires a local checkout of [boozook/playdate](https://github.com/boozook/playdate) (a
-`cargo-playdate` fork) - `PLAYDATE_FORK_DIR` in `.env` points at it if it isn't a sibling of this repo
-(defaults to `../../playdate`). Also needs the nightly toolchain, since the fork's own dependencies
-use unstable features unconditionally, and the Cortex-M7 device target (`cargo make playdate-target`
-installs `thumbv7em-none-eabihf` + `rust-src`).
+`cargo make playdate-tool` installs the `cargo-playdate` CLI straight from
+[joelbm24/playdate](https://github.com/joelbm24/playdate) (a fork of
+[boozook/playdate](https://github.com/boozook/playdate)) - no local checkout needed for that part.
+Also needs the nightly toolchain, since the fork's own dependencies use unstable features
+unconditionally, and the Cortex-M7 device target (`cargo make playdate-target` installs
+`thumbv7em-none-eabihf` + `rust-src`).
+
+The `playdate` crate itself (this game's dependency on the fork's API), on the other hand, does need
+a local checkout as a sibling of this repo at `../../playdate` - `playdate/Cargo.toml` depends on it
+via a `path`, not `git`. That's not a preference, it's a workaround: `cargo-playdate` bundles its own
+old, pinned `cargo` library to read manifests, and that library has a real bug constructing the
+internal spec for a `git`-sourced dependency (crashes with `expected a version like "1.32"`,
+regardless of `branch` vs. a pinned `rev`) that a `path` dependency pointing at the exact same commit
+never triggers. Clone [joelbm24/playdate](https://github.com/joelbm24/playdate) alongside this repo
+if it isn't already.
 
 Every crate in the workspace carries a `cargo-features = ["edition2024"]` shim in its `Cargo.toml` -
 cargo-playdate embeds an old `cargo` library that doesn't recognize edition 2024 as stable without it,
