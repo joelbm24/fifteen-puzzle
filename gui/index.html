@@ -5,10 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Fifteen Puzzle</title>
     <style>
-      html, body { margin: 0; padding: 0; height: 100%; background: #111; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #111;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      /* Bevy's fit_canvas_to_parent resizes the canvas to match this element,
+         which is why its size is set here (not on the canvas itself) - full
+         width/height on a small (mobile) viewport, capped at the same size
+         as the native desktop app's default window on a larger one. */
+      #game-container {
+        width: 100%;
+        height: 100%;
+        max-width: 700px;
+        max-height: 620px;
+      }
       canvas { width: 100%; height: 100%; display: block; }
     </style>
     <link data-trunk rel="rust" data-bin="fifteen-gui" data-wasm-opt="z" />
   </head>
-  <body></body>
+  <body>
+    <div id="game-container">
+      <canvas id="bevy-canvas"></canvas>
+    </div>
+  </body>
 </html>

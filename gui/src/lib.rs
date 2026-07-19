@@ -135,6 +135,15 @@ pub fn run_app() {
                 mode: bevy::window::WindowMode::BorderlessFullscreen(bevy::window::MonitorSelection::Current),
                 #[cfg(target_os = "android")]
                 mode: bevy::window::WindowMode::BorderlessFullscreen(bevy::window::MonitorSelection::Primary),
+                // Web: attach to the canvas already sitting in index.html's
+                // #game-container (a CSS-sized/capped div - see that file for
+                // why) rather than creating a fresh one appended straight to
+                // <body>, and keep it in sync with that container's size as
+                // the browser window is resized.
+                #[cfg(target_arch = "wasm32")]
+                canvas: Some("#bevy-canvas".to_string()),
+                #[cfg(target_arch = "wasm32")]
+                fit_canvas_to_parent: true,
                 ..default()
             }),
             ..default()
@@ -711,8 +720,6 @@ fn animate_tiles(time: Res<Time>, mut tiles: Query<(&TargetPos, &mut Transform)>
     }
 }
 
-/// Moves `current` toward `target` by at most `max_delta` units, snapping
-/// exactly onto it once within range.
 fn move_towards(current: Vec3, target: Vec3, max_delta: f32) -> Vec3 {
     let delta = target - current;
     let dist = delta.length();
@@ -756,7 +763,6 @@ fn show_win_when_settled(
     }
 }
 
-/// Converts a flat 0..16 board index into a centered world-space position.
 fn position_for_index(index: usize, metrics: &GridMetrics) -> Vec3 {
     let row = (index / GRID_SIZE as usize) as f32;
     let col = (index % GRID_SIZE as usize) as f32;
