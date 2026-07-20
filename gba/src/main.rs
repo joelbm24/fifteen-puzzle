@@ -19,9 +19,6 @@ use rand::rngs::SmallRng;
 
 agb::include_aseprite!(
     mod sprites,
-    // 5x3 grid of the 15 numbered tiles (tile 1 at sub-frame 0, tile 2 at
-    // sub-frame 1, ... tile 15 at sub-frame 14, row-major) - see
-    // `tile_sprite` below for how a tile value maps to its sub-frame index.
     32x32 "gfx/tiles.png",
     "gfx/cursor.png",
     32x32 "gfx/title_fifteen.png",
@@ -32,12 +29,6 @@ agb::include_aseprite!(
     "gfx/arrow.png",
 );
 
-// A real pixel/bitmap-style font (M+ Font Project's "PixelMplus10", designed
-// to render crisply at exactly 10px, unlike gfx/font.ttf which is a smooth
-// DejaVu Sans that looked jagged/blotchy once rasterized this small) used
-// here directly (via agb's built-in text renderer) for the dynamic
-// "By Joel Buchheim-Moore" credit line so it doesn't need its own pre-baked
-// image asset.
 static CREDIT_FONT: Font = agb::include_font!("gfx/pixel_mplus10.ttf", 10);
 
 static CREDIT_PALETTE: &Palette16 = {
@@ -47,7 +38,10 @@ static CREDIT_PALETTE: &Palette16 = {
 };
 
 fn tile_sprite(value: u8) -> &'static Sprite {
-    debug_assert!((1..=15).contains(&value), "board values are always 0 (blank, handled separately) or 1..=15");
+    debug_assert!(
+        (1..=15).contains(&value),
+        "board values are always 0 (blank, handled separately) or 1..=15"
+    );
     sprites::TILES.sprite((value - 1) as usize)
 }
 
@@ -55,7 +49,7 @@ const fn rgb15(r: u16, g: u16, b: u16) -> Rgb15 {
     Rgb15((b << 10) | (g << 5) | r)
 }
 
-const BACKDROP_GREY: Rgb15 = rgb15(4, 4, 4);
+const BACKDROP_GREY: Rgb15 = rgb15(2, 2, 2);
 
 const GRID_SIZE: i32 = 4;
 const TILE: i32 = 32;
@@ -67,15 +61,7 @@ fn reshuffle(board: &mut Board, seed: u64) {
     *board = Board::shuffled(&mut rng);
 }
 
-/// Draws the "By Joel Buchheim-Moore" credit line, horizontally centered,
-/// with its top edge at `y`.
 fn show_credit_line(frame: &mut GraphicsFrame<'_>, objects: &mut Vec<Object>, y: i32) {
-    // Size must be strictly larger than the font's rendered glyph bounding
-    // box (ascenders/descenders included), not just the nominal font size -
-    // agb's own doc examples pair an 8px font with a 16x16 sprite size for
-    // exactly this reason; S8x8 panics with "y too big for sprite size".
-    // PixelMplus10's ascent+descent at 10px comes to ~11px, comfortably
-    // inside 16x16.
     let renderer = ObjectTextRenderer::new(CREDIT_PALETTE.into(), Size::S16x16);
     let layout = Layout::new(
         "By Joel Buchheim-Moore",
@@ -163,15 +149,10 @@ fn main(mut gba: Gba) -> ! {
             }
             Screen::Playing => {
                 if board.is_solved() {
-                    // Solved - block cursor movement and Start (no pause
-                    // menu to open, there's nothing to pause), only A (new
-                    // game) does anything, same rule as the Playdate port.
                     if input.is_just_pressed(Button::A) {
                         reshuffle(&mut board, frame_count);
                     }
                 } else if input.is_just_pressed(Button::Start) {
-                    // Open the pause menu rather than reshuffling directly -
-                    // New Game/Close live there now instead.
                     pause_option = PauseOption::NewGame;
                     screen = Screen::Paused;
                 } else {
@@ -190,7 +171,7 @@ fn main(mut gba: Gba) -> ! {
                     cursor = row * GRID_SIZE as usize + col;
 
                     if input.is_just_pressed(Button::A) {
-                        let _ = board.slide_toward(cursor); // ignore if not aligned with blank
+                        let _ = board.slide_toward(cursor);
                     }
                 }
             }
