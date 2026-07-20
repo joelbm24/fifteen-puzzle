@@ -9,9 +9,6 @@
   ```
   cp example.env .env
   ```
-  `.env` is gitignored - it's your local/sensitive config, never committed. `cargo-make` loads it
-  automatically for every task (see `env_files` in `Makefile.toml`), so there's nothing to
-  `source` yourself.
 
 Additional per-platform requirements are listed in each section below.
 
