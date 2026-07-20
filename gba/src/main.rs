@@ -19,21 +19,10 @@ use rand::rngs::SmallRng;
 
 agb::include_aseprite!(
     mod sprites,
-    "gfx/tile_1.png",
-    "gfx/tile_2.png",
-    "gfx/tile_3.png",
-    "gfx/tile_4.png",
-    "gfx/tile_5.png",
-    "gfx/tile_6.png",
-    "gfx/tile_7.png",
-    "gfx/tile_8.png",
-    "gfx/tile_9.png",
-    "gfx/tile_10.png",
-    "gfx/tile_11.png",
-    "gfx/tile_12.png",
-    "gfx/tile_13.png",
-    "gfx/tile_14.png",
-    "gfx/tile_15.png",
+    // 5x3 grid of the 15 numbered tiles (tile 1 at sub-frame 0, tile 2 at
+    // sub-frame 1, ... tile 15 at sub-frame 14, row-major) - see
+    // `tile_sprite` below for how a tile value maps to its sub-frame index.
+    32x32 "gfx/tiles.png",
     "gfx/cursor.png",
     32x32 "gfx/title_fifteen.png",
     32x32 "gfx/title_puzzle.png",
@@ -58,35 +47,19 @@ static CREDIT_PALETTE: &Palette16 = {
 };
 
 fn tile_sprite(value: u8) -> &'static Sprite {
-    match value {
-        1 => sprites::TILE_1.sprite(0),
-        2 => sprites::TILE_2.sprite(0),
-        3 => sprites::TILE_3.sprite(0),
-        4 => sprites::TILE_4.sprite(0),
-        5 => sprites::TILE_5.sprite(0),
-        6 => sprites::TILE_6.sprite(0),
-        7 => sprites::TILE_7.sprite(0),
-        8 => sprites::TILE_8.sprite(0),
-        9 => sprites::TILE_9.sprite(0),
-        10 => sprites::TILE_10.sprite(0),
-        11 => sprites::TILE_11.sprite(0),
-        12 => sprites::TILE_12.sprite(0),
-        13 => sprites::TILE_13.sprite(0),
-        14 => sprites::TILE_14.sprite(0),
-        15 => sprites::TILE_15.sprite(0),
-        _ => unreachable!("board values are always 0 (blank, handled separately) or 1..=15"),
-    }
+    debug_assert!((1..=15).contains(&value), "board values are always 0 (blank, handled separately) or 1..=15");
+    sprites::TILES.sprite((value - 1) as usize)
 }
 
 const fn rgb15(r: u16, g: u16, b: u16) -> Rgb15 {
     Rgb15((b << 10) | (g << 5) | r)
 }
 
-const BACKDROP_GREY: Rgb15 = rgb15(6, 6, 6);
+const BACKDROP_GREY: Rgb15 = rgb15(4, 4, 4);
 
 const GRID_SIZE: i32 = 4;
 const TILE: i32 = 32;
-const GAP: i32 = 4;
+const GAP: i32 = 2;
 const BOARD_PIXELS: i32 = GRID_SIZE * TILE + (GRID_SIZE - 1) * GAP;
 
 fn reshuffle(board: &mut Board, seed: u64) {
