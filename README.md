@@ -130,6 +130,8 @@ cargo make linux-deb-install
 
 ## Playdate
 
+![Title Screen](screenshots/playdate-title.png)
+
 `cargo make playdate-tool` installs the `cargo-playdate` CLI straight from
 [joelbm24/playdate](https://github.com/joelbm24/playdate) (a fork of
 [boozook/playdate](https://github.com/boozook/playdate)) - no local checkout needed for that part.
