@@ -167,8 +167,6 @@ cargo make playdate-device
 ![Title Screen](screenshots/fifteen-gba-0.png)
 ![Game](screenshots/fifteen-gba-1.png)
 
-<img src="screenshots/fifteen-gba-1.png" alt="Game" style="margin-left: 20px;">
-
 Built on the [agb](https://agbrs.dev) crate. Needs the nightly toolchain (pinned by
 `gba/rust-toolchain.toml`) with `rust-src` (`cargo make gba-target` installs it) - agb's
 `thumbv4t-none-eabi` target isn't built into rustc, it's built from source via `-Z build-std`. Also
