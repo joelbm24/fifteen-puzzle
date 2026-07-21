@@ -131,6 +131,7 @@ cargo make linux-deb-install
 ## Playdate
 
 ![Title Screen](screenshots/playdate-title.png)
+![Game](screenshots/playdate-game.png)
 
 `cargo make playdate-tool` installs the `cargo-playdate` CLI straight from
 [joelbm24/playdate](https://github.com/joelbm24/playdate) (a fork of
@@ -162,6 +163,11 @@ cargo make playdate-device
 - **System menu → New Game** — reshuffle at any time
 
 ## Game Boy Advance
+
+![Title Screen](screenshots/fifteen-gba-0.png)
+![Game](screenshots/fifteen-gba-1.png)
+
+<img src="screenshots/fifteen-gba-1.png" alt="Game" style="margin-left: 20px;">
 
 Built on the [agb](https://agbrs.dev) crate. Needs the nightly toolchain (pinned by
 `gba/rust-toolchain.toml`) with `rust-src` (`cargo make gba-target` installs it) - agb's
