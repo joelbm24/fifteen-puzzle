@@ -1,5 +1,7 @@
 # Fifteen Puzzle
 
+A sliding fifteen tile puzzle. Targets cli, web, iOS, android, GBA, Playdate, Flipper Zero, Mac and Linux desktops
+
 ## Setup
 
 - [Rust](https://rustup.rs/) (stable toolchain)
