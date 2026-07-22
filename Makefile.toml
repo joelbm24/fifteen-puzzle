@@ -272,6 +272,46 @@ agb-gbafix ../target/thumbv4t-none-eabi/release/fifteen-gba -o ../target/thumbv4
 echo "Built target/thumbv4t-none-eabi/release/fifteen-gba.gba"
 '''
 
+[tasks.flipper-target]
+description = "Install the rustup bits a Flipper Zero build needs: the thumbv7em-none-eabihf target on the nightly toolchain flipper/rust-toolchain.toml pins"
+script_runner = "@shell"
+script = '''
+set -e
+rustup run nightly rustup target add thumbv7em-none-eabihf
+'''
+
+[tasks.flipper]
+description = "Build the Flipper Zero crate (debug). flipper/rust-toolchain.toml pins nightly and flipper/.cargo/config.toml sets the target/rustflags, both scoped to this directory, hence the cd rather than -p."
+dependencies = ["flipper-target"]
+script_runner = "@shell"
+script = '''
+cd flipper
+cargo build
+'''
+
+[tasks.flipper-release]
+description = "Build an optimized Flipper Zero .fap at target/thumbv7em-none-eabihf/release/fifteen-flipper.fap. Cargo's `different-binary-name` unstable feature (which used to give the binary a .fap filename directly) requires nightly cargo even just to *parse* the manifest, which broke `cargo metadata`/cargo-make for the whole workspace from the stable-toolchain root - so instead we build a plain-named binary and copy it to the .fap filename afterward."
+dependencies = ["flipper-target"]
+script_runner = "@shell"
+script = '''
+set -e
+cd flipper
+cargo build --release
+cp ../target/thumbv7em-none-eabihf/release/fifteen-flipper ../target/thumbv7em-none-eabihf/release/fifteen-flipper.fap
+'''
+
+[tasks.flipper-send]
+description = "Build (release) and copy the .fap to a connected Flipper Zero over USB. Needs the `storage` command from flipperzero-tools (`cargo install --locked flipperzero-tools`)."
+dependencies = ["flipper-release"]
+command = "storage"
+args = ["send", "target/thumbv7em-none-eabihf/release/fifteen-flipper.fap", "/ext/apps/Homebrew/fifteen-flipper.fap"]
+
+[tasks.flipper-run]
+description = "Build (release) and run the app on a connected Flipper Zero. Needs the `run-fap` command from flipperzero-tools."
+dependencies = ["flipper-release"]
+command = "run-fap"
+args = ["target/thumbv7em-none-eabihf/release/fifteen-flipper.fap"]
+
 [tasks.linux-deb-install]
 description = "Build and install the Debian package with dpkg (needs sudo)"
 dependencies = ["linux-deb"]

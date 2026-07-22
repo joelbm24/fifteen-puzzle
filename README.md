@@ -157,7 +157,7 @@ cargo make playdate-device
 
 - **D-pad** — moves the selection cursor by default; press A to slide the highlighted tile toward the
   blank. Switch to directly sliding tiles with the D-pad instead via the system menu → **Input** →
-  **Arrows**.
+  **Direct**.
 - **A** — begin from the title screen, slide the selected/highlighted tile (Cursor mode), or start a
   new game once solved
 - **System menu → New Game** — reshuffle at any time
@@ -195,3 +195,48 @@ cargo make gba-release
 - **Start** — begins the game from the title screen; pauses mid-game with a **New Game**/**Close**
   menu (D-pad Up/Down to choose, A to confirm)
 - **B** — closes the pause menu without changing anything
+
+## Flipper Zero
+
+![Game](screenshots/flipper-game.png)
+
+Built on the [flipperzero-rs](https://github.com/dcoles/flipperzero-rs) crates. Needs the nightly
+toolchain (pinned by `flipper/rust-toolchain.toml`) with the `thumbv7em-none-eabihf` target
+(`cargo make flipper-target` installs it). Sending to or running on a connected device needs the
+`storage`/`run-fap` commands from
+[flipperzero-tools](https://github.com/dcoles/flipperzero-rs/tree/main/crates/flipperzero-tools)
+(`cargo install --locked flipperzero-tools`).
+
+Build (debug):
+
+```
+cargo make flipper
+```
+
+Build an optimized `.fap` (`target/thumbv7em-none-eabihf/release/fifteen-flipper.fap`):
+
+```
+cargo make flipper-release
+```
+
+Build and copy to a connected Flipper Zero over USB:
+
+```
+cargo make flipper-send
+```
+
+Build and run on a connected Flipper Zero:
+
+```
+cargo make flipper-run
+```
+
+**Controls:**
+
+- **D-pad** — moves the selection cursor around the board by default; switch to directly sliding
+  tiles with the D-pad instead via the menu (see below)
+- **Ok (short press)** — slides the highlighted tile toward the blank (Cursor mode only), or starts
+  a new game once solved
+- **Ok (long press)** — opens a menu (D-pad Up/Down to choose, Ok to confirm): toggle input style
+  between **Cursor** and **Direct**, start a **New Game**, or **Close** the menu
+- **Back** — closes the menu if it's open, otherwise exits the app

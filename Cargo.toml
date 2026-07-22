@@ -5,7 +5,7 @@ edition = "2024"
 license.workspace = true
 
 [workspace]
-members = ["cli","gui","playdate","gba"]
+members = ["cli","gui","playdate","gba","flipper"]
 
 [workspace.package]
 license = "Apache-2.0"

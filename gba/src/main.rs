@@ -129,7 +129,7 @@ fn main(mut gba: Gba) -> ! {
     let origin_x = (agb::display::WIDTH as i32 - BOARD_PIXELS) / 2;
     let origin_y = (agb::display::HEIGHT as i32 - BOARD_PIXELS) / 2;
 
-    let mut board = Board::new(); // starts solved
+    let mut board = Board::new();
     let mut frame_count: u64 = 0;
     let mut cursor: usize = 0;
     let mut screen = Screen::Title;
@@ -181,7 +181,7 @@ fn main(mut gba: Gba) -> ! {
                 }
 
                 if input.is_just_pressed(Button::B) || input.is_just_pressed(Button::Start) {
-                    screen = Screen::Playing; // resume, unchanged
+                    screen = Screen::Playing;
                 } else if input.is_just_pressed(Button::A) {
                     match pause_option {
                         PauseOption::NewGame => {

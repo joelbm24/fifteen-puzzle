@@ -1,0 +1,27 @@
+# Scoped to this directory - cargo's config discovery walks up from the
+# current directory, so this only takes effect when cargo is invoked from
+# inside `flipper/` (same pattern as gba/.cargo/config.toml - `cd flipper &&
+# cargo ...`). That keeps the Flipper-only target/rustflags from leaking into
+# the rest of the workspace (cli/gui/playdate/gba), which build for entirely
+# different targets.
+
+[target.thumbv7em-none-eabihf]
+rustflags = [
+    # CPU is Cortex-M4 (STM32WB55)
+    "-C", "target-cpu=cortex-m4",
+
+    # Size optimizations
+    "-C", "panic=abort",
+    "-C", "debuginfo=0",
+    "-C", "opt-level=z",
+
+    # LTO helps reduce binary size
+    "-C", "embed-bitcode=yes",
+    "-C", "lto=yes",
+
+    # Linker flags for relocatable binary
+    "-C", "link-args=--script=flipperzero-rt.ld --Bstatic --relocatable --discard-all --strip-all --lto-O3 --lto-whole-program-visibility",
+]
+
+[build]
+target = "thumbv7em-none-eabihf"

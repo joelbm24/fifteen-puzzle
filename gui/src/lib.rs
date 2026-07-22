@@ -13,7 +13,7 @@ const GRID_SIZE: i32 = 4;
 const TILE_SIZE: f32 = 100.0;
 const TILE_GAP: f32 = 3.0;
 const TILE_BORDER: f32 = 6.0;
-const TILE_SPEED: f32 = 900.0; // pixels per second
+const TILE_SPEED: f32 = 900.0;
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
@@ -64,6 +64,8 @@ impl GridMetrics {
     }
 }
 
+/// Scales tile size (capped at `TILE_SIZE`) to fit the window's shortest
+/// side, keeping gap/border proportional.
 fn compute_grid_metrics(window_size: Vec2) -> GridMetrics {
     let shortest_side = window_size.x.min(window_size.y);
 
@@ -72,7 +74,7 @@ fn compute_grid_metrics(window_size: Vec2) -> GridMetrics {
     const GAP_RATIO: f32 = TILE_GAP / TILE_SIZE;
     const BORDER_RATIO: f32 = TILE_BORDER / TILE_SIZE;
     const FOOTPRINT_COEFF: f32 = GRID_SIZE as f32 + (GRID_SIZE as f32 - 1.0) * GAP_RATIO;
-    const SCREEN_MARGIN: f32 = 0.92; // leave a little breathing room at the edges
+    const SCREEN_MARGIN: f32 = 0.92;
 
     let fitted_tile_size = (shortest_side * SCREEN_MARGIN) / FOOTPRINT_COEFF;
     let tile_size = fitted_tile_size.min(MAX_TILE_SIZE);
@@ -135,11 +137,6 @@ pub fn run_app() {
                 mode: bevy::window::WindowMode::BorderlessFullscreen(bevy::window::MonitorSelection::Current),
                 #[cfg(target_os = "android")]
                 mode: bevy::window::WindowMode::BorderlessFullscreen(bevy::window::MonitorSelection::Primary),
-                // Web: attach to the canvas already sitting in index.html's
-                // #game-container (a CSS-sized/capped div - see that file for
-                // why) rather than creating a fresh one appended straight to
-                // <body>, and keep it in sync with that container's size as
-                // the browser window is resized.
                 #[cfg(target_arch = "wasm32")]
                 canvas: Some("#bevy-canvas".to_string()),
                 #[cfg(target_arch = "wasm32")]
@@ -148,7 +145,7 @@ pub fn run_app() {
             }),
             ..default()
         }))
-        .init_resource::<InputFocus>() // required for UI button accessibility
+        .init_resource::<InputFocus>()
         .init_resource::<MenuMessage>()
         .init_resource::<PendingWin>()
         .init_resource::<HasPlayed>()
@@ -198,7 +195,6 @@ fn spawn_menu(mut commands: Commands, message: Res<MenuMessage>, metrics: Res<Gr
     let scale = metrics.ui_scale();
 
     if message.is_win {
-        // Win screen: title + button sit on a darker, padded panel.
         commands.spawn((
             MenuRoot,
             Node {
@@ -235,7 +231,6 @@ fn spawn_menu(mut commands: Commands, message: Res<MenuMessage>, metrics: Res<Gr
             )],
         ));
     } else {
-        // Title screen: original plain look, no panel.
         commands.spawn((
             MenuRoot,
             Node {
@@ -344,7 +339,7 @@ fn resolve_screen_metrics(
     } else {
         *frames_waited += 1;
         if *frames_waited < FALLBACK_FRAMES {
-            return; // give a real resize message a chance to arrive first
+            return;
         }
         let Ok(window) = windows.single() else { return };
         Vec2::new(window.width(), window.height())
@@ -362,7 +357,7 @@ fn spawn_tiles_with_metrics(commands: &mut Commands, board: &BoardState, metrics
 
     for (index, &value) in board.0.tiles().iter().enumerate() {
         if value == 0 {
-            continue; // blank tile has no entity
+            continue;
         }
 
         let pos = position_for_index(index, metrics);
@@ -375,7 +370,6 @@ fn spawn_tiles_with_metrics(commands: &mut Commands, board: &BoardState, metrics
                 Visibility::Hidden,
             ))
             .with_children(|tile| {
-                // Drop shadow, offset down-right, drawn behind everything.
                 tile.spawn((
                     Sprite::from_color(TILE_SHADOW, Vec2::splat(metrics.tile_size)),
                     Transform::from_xyz(shadow_offset, -shadow_offset, 0.0),
@@ -383,7 +377,6 @@ fn spawn_tiles_with_metrics(commands: &mut Commands, board: &BoardState, metrics
 
                 let tile_color = if value % 2 == 0 { TILE_FACE } else { TILE_FACE2 };
 
-                // Darker frame — full tile size, shows as a border.
                 let darken = if value % 2 == 0 { 0.05 } else { 0.10 };
                 let tile_frame_color: Color = tile_color.to_srgba().darker(darken).into();
 
@@ -397,7 +390,6 @@ fn spawn_tiles_with_metrics(commands: &mut Commands, board: &BoardState, metrics
                     Transform::from_xyz(0.0, 0.0, 0.2),
                 ));
 
-                // Tile number, on top.
                 tile.spawn((
                     Text2d::new(value.to_string()),
                     TextFont {
@@ -573,7 +565,7 @@ fn open_confirm_menu(
     existing: Query<Entity, With<ConfirmMenuRoot>>,
     metrics: Option<Res<GridMetrics>>,
 ) {
-    let Some(metrics) = metrics else { return }; // not resolved yet (Loading)
+    let Some(metrics) = metrics else { return };
 
     for (interaction, mut color, mut border_color, mut button) in &mut interactions {
         match *interaction {
@@ -631,11 +623,9 @@ fn cancel_confirm_menu(
     }
 }
 
-// ----- Input -----
-
+/// Arrow key = direction the tile slides, so it's the opposite of the
+/// direction the blank moves.
 fn handle_input(keys: Res<ButtonInput<KeyCode>>, mut board: ResMut<BoardState>) {
-    // Arrow key = direction the tile slides, so it's the opposite
-    // of the direction the blank moves.
     let mv = if keys.just_pressed(KeyCode::ArrowUp) {
         Some(Move::Down)
     } else if keys.just_pressed(KeyCode::ArrowDown) {
@@ -649,7 +639,7 @@ fn handle_input(keys: Res<ButtonInput<KeyCode>>, mut board: ResMut<BoardState>) 
     };
 
     if let Some(mv) = mv {
-        let _ = board.0.apply_move(mv); // ignore illegal moves at the edges
+        let _ = board.0.apply_move(mv);
     }
 }
 
@@ -661,7 +651,7 @@ fn handle_pointer_input(
     mut board: ResMut<BoardState>,
     metrics: Option<Res<GridMetrics>>,
 ) {
-    let Some(metrics) = metrics else { return }; // tiles/metrics not ready yet
+    let Some(metrics) = metrics else { return };
     let Ok(window) = windows.single() else { return };
     let Ok((camera, camera_transform)) = camera.single() else {
         return;
@@ -679,12 +669,12 @@ fn handle_pointer_input(
     };
 
     if let Some(index) = index_for_position(world_pos, &metrics) {
-        let _ = board.0.slide_toward(index); // ignore clicks off-axis from the blank
+        let _ = board.0.slide_toward(index);
     }
 }
 
-/// Inverse of `position_for_index` — maps a world-space point to the
-/// nearest grid cell, or `None` if it falls outside the board.
+/// Inverse of `position_for_index`: world-space point to nearest grid cell,
+/// or `None` if outside the board.
 fn index_for_position(pos: Vec2, metrics: &GridMetrics) -> Option<usize> {
     let step = metrics.step();
     let offset = step * (GRID_SIZE as f32 - 1.0) / 2.0;
@@ -763,6 +753,7 @@ fn show_win_when_settled(
     }
 }
 
+/// Board index to on-screen position, centered on the grid.
 fn position_for_index(index: usize, metrics: &GridMetrics) -> Vec3 {
     let row = (index / GRID_SIZE as usize) as f32;
     let col = (index % GRID_SIZE as usize) as f32;

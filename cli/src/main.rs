@@ -17,10 +17,9 @@ use ratatui::{
 use fifteen::{Board, Move};
 
 const TILE_WIDTH: u16 = 9;
-const TILE_HEIGHT: u16 = 5; // 1 border + 3 content lines + 1 border — number is padded to the middle line
+const TILE_HEIGHT: u16 = 5;
 const GRID_SIZE: u16 = 4;
 
-// Roughly matches the GUI's tile colors.
 const ODD_TILE_COLOR: Color = Color::Rgb(0xCC, 0x55, 0x00);
 const EVEN_TILE_COLOR: Color = Color::Rgb(0x00, 0x47, 0xAB);
 
@@ -35,7 +34,6 @@ fn init_terminal() -> io::Result<Terminal<CrosstermBackend<Stdout>>> {
     enable_raw_mode()?;
     execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
 
-    // Make sure raw mode / alt screen get cleaned up even on panic.
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         let _ = restore_terminal();
@@ -73,8 +71,6 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
                     continue;
                 }
 
-                // Arrow key = direction the tile slides, so it's the opposite
-                // of the direction the blank moves.
                 let mv = match key.code {
                     KeyCode::Up => Some(Move::Down),
                     KeyCode::Down => Some(Move::Up),
@@ -89,7 +85,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
                 };
 
                 if let Some(mv) = mv {
-                    let _ = board.apply_move(mv); // ignore illegal moves at the edges
+                    let _ = board.apply_move(mv);
                 }
             }
             Event::Mouse(mouse) => {
@@ -97,7 +93,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> io::Result<()> {
                     let size = terminal.size()?;
                     let area = Rect::new(0, 0, size.width, size.height);
                     if let Some(index) = tile_at(area, mouse.column, mouse.row) {
-                        let _ = board.slide_toward(index); // ignore if not aligned with blank
+                        let _ = board.slide_toward(index);
                     }
                 }
             }
@@ -162,6 +158,8 @@ fn render_board(frame: &mut Frame, area: Rect, board: &Board) {
     }
 }
 
+/// Vertically centers the tile's number by padding with blank lines above
+/// and below, since the inner area's height varies with the terminal size.
 fn render_cell(frame: &mut Frame, area: Rect, tile: u8) {
     let block = Block::default().borders(Borders::ALL);
     let inner = block.inner(area);
@@ -173,8 +171,6 @@ fn render_cell(frame: &mut Frame, area: Rect, tile: u8) {
         _ => Style::default().bg(EVEN_TILE_COLOR).fg(Color::White),
     };
 
-    // Pad the number with blank lines so it lands on the middle line
-    // regardless of how tall the inner area is.
     let content_height = inner.height as usize;
     let pad_before = content_height.saturating_sub(1) / 2;
     let pad_after = content_height.saturating_sub(1).saturating_sub(pad_before);
@@ -199,7 +195,7 @@ fn split_status_and_board(area: Rect) -> (Rect, Rect) {
 }
 
 fn centered_board_rect(area: Rect) -> Rect {
-    let board_width = TILE_WIDTH * GRID_SIZE + 2; // +2 for outer border
+    let board_width = TILE_WIDTH * GRID_SIZE + 2;
     let board_height = TILE_HEIGHT * GRID_SIZE + 2;
     centered_rect(board_width, board_height, area)
 }

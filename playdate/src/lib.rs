@@ -27,7 +27,7 @@ use rand::rngs::SmallRng;
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum InputStyle {
     Cursor,
-    Arrows,
+    Direct,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -55,14 +55,14 @@ struct State {
 impl State {
     fn new() -> Self {
         let bold_font = text::load_font(BOLD_FONT_PATH).ok();
-        let input_style_item = OptionsMenuItem::new("Input", ["Arrows", "Cursor"], None, ()).ok();
+        let input_style_item = OptionsMenuItem::new("Input", ["Direct", "Cursor"], None, ()).ok();
         if let Some(item) = &input_style_item {
-            item.set_value(1); // default to Cursor - Arrows is still the fallback if this item is None
+            item.set_value(1);
         }
         let new_game_item = SimpleMenuItem::new("New Game", Some(|requested: &mut bool| *requested = true), false).ok();
         Self {
             screen: Screen::Title,
-            board: Board::new(), // starts solved; shuffled once the player presses A on the title screen
+            board: Board::new(),
             bold_font,
             input_style_item,
             new_game_item,
@@ -73,32 +73,24 @@ impl State {
     fn input_style(&self) -> InputStyle {
         match self.input_style_item.as_ref().map(|item| item.selected_option()) {
             Some(1) => InputStyle::Cursor,
-            _ => InputStyle::Arrows,
+            _ => InputStyle::Direct,
         }
     }
 }
 
-/// Playdate has no OS entropy source (no `getrandom` backend), so `rand::rng()`
-/// isn't available - instead this seeds a `SmallRng` from the wall-clock time
-/// (seconds + milliseconds since epoch). Not cryptographically random, but
-/// that's not a concern for shuffling a puzzle board, and it varies from run
-/// to run since it's wall-clock based rather than time-since-boot.
+/// Seeds a `SmallRng` from the wall-clock time, since Playdate has no OS
+/// entropy source for `rand::rng()`.
 fn clock_seed() -> u64 {
     let (secs, ms) = System::Default().seconds_since_epoch_with_ms();
     ((secs as u64) << 32) | (ms as u64)
 }
 
-/// Reshuffles the board from a freshly seeded RNG. Shared by both ways to
-/// start a new game: the A button once the board is solved, and the system
-/// menu's "New Game" item, which works regardless of whether it's solved.
 fn reshuffle(board: &mut Board) {
     let mut rng = SmallRng::seed_from_u64(clock_seed());
     *board = Board::shuffled(&mut rng);
 }
 
 fn handle_input(state: &mut State) {
-    // The system menu's "New Game" item works no matter what's on screen -
-    // check and consume it first, unconditionally.
     if let Some(item) = &state.new_game_item {
         if let Some(requested) = item.get_userdata() {
             if *requested {
@@ -121,8 +113,6 @@ fn handle_input(state: &mut State) {
         }
         Screen::Playing => {
             if state.board.is_solved() {
-                // Board is solved - don't let normal moves keep changing it. Only
-                // the A button does anything here, starting a new game.
                 if Buttons::Cached().get().pushed.a() {
                     reshuffle(&mut state.board);
                 }
@@ -130,7 +120,7 @@ fn handle_input(state: &mut State) {
             }
 
             match state.input_style() {
-                InputStyle::Arrows => handle_arrow_input(&mut state.board),
+                InputStyle::Direct => handle_arrow_input(&mut state.board),
                 InputStyle::Cursor => handle_cursor_input(&mut state.board, &mut state.cursor),
             }
         }
@@ -175,7 +165,7 @@ fn handle_cursor_input(board: &mut Board, cursor: &mut usize) {
     *cursor = row * GRID_SIZE as usize + col;
 
     if buttons.pushed.a() {
-        let _ = board.slide_toward(*cursor); // ignore if not aligned with blank
+        let _ = board.slide_toward(*cursor);
     }
 }
 
@@ -218,7 +208,7 @@ fn draw_playing_screen(gfx: &Graphics, state: &State) {
 
     for (index, &value) in state.board.tiles().iter().enumerate() {
         if value == 0 {
-            continue; // blank tile has no visual
+            continue;
         }
 
         let row = (index / GRID_SIZE as usize) as i32;
@@ -226,16 +216,12 @@ fn draw_playing_screen(gfx: &Graphics, state: &State) {
         let x = origin_x + col * (TILE + GAP);
         let y = origin_y + row * (TILE + GAP);
 
-        // Odd tiles get a solid black fill with white (inverted) text;
-        // even tiles stay plain white with black text.
         let is_odd = value % 2 == 1;
         if is_odd {
             gfx.fill_rect(x, y, TILE, TILE, Color::BLACK.into());
         }
         gfx.draw_rect(x, y, TILE, TILE, Color::BLACK.into());
 
-        // Measure the actual rendered width so 1- and 2-digit numbers
-        // both land centered, rather than guessing a fixed digit width.
         let label = value.to_string();
         let text_width = gfx
             .get_text_width(&label, state.bold_font.as_ref(), 0)
@@ -265,16 +251,12 @@ fn draw_playing_screen(gfx: &Graphics, state: &State) {
         gfx.draw_rect(x + 1, y + 1, TILE - 2, TILE - 2, Color::WHITE.into());
     }
 
-    // Drawn last so it overlays the board rather than getting covered by
-    // the tiles.
     if state.board.is_solved() {
         draw_solved_banner(gfx, state.bold_font.as_ref());
     }
 }
 
-/// Draws a small 2x2 preview of numbered tiles, centered horizontally, as a
-/// mini logo above the title text. Mirrors the real tile styling (odd tiles
-/// filled black with inverted white text) at a smaller size.
+/// Small 2x2 preview of numbered tiles, used as a mini logo above the title.
 fn draw_mini_logo(gfx: &Graphics, font: Option<&Font>, top_y: i32) -> i32 {
     const MINI_TILE: i32 = 28;
     const MINI_GAP: i32 = 4;
@@ -312,10 +294,8 @@ fn draw_mini_logo(gfx: &Graphics, font: Option<&Font>, top_y: i32) -> i32 {
     board_h
 }
 
-/// Draws `text` scaled up by `scale`, centered horizontally, with its top
-/// edge at `y`. Uses the same "render small, then draw_scaled" trick as
-/// [`draw_solved_banner`], since the Playdate API has no built-in font
-/// scaling. Returns the scaled line height so callers can stack lines.
+/// Renders `text` small then scales it up, since the Playdate API has no
+/// built-in font scaling. Returns the scaled line height.
 fn draw_scaled_line_centered(gfx: &Graphics, font: Option<&Font>, text: &str, scale: i32, y: i32) -> i32 {
     let text_w = gfx.get_text_width(text, font, 0).unwrap_or(60).max(1);
     let font_h = font.map(|f| gfx.get_font_height(f) as i32).unwrap_or(16).max(1);
@@ -338,9 +318,6 @@ fn draw_scaled_line_centered(gfx: &Graphics, font: Option<&Font>, text: &str, sc
     scaled_h
 }
 
-/// Draws the "Press A to start" hint, styled like the "New Game" hint chip on
-/// the SOLVED! banner but inverted (black chip, white A) to read correctly
-/// against the title screen's plain white background.
 fn draw_start_hint(gfx: &Graphics, font: Option<&Font>, y: i32) {
     const CHIP_DIAMETER: i32 = 20;
     const GROUP_GAP: i32 = 8;
@@ -379,8 +356,6 @@ fn draw_title_screen(gfx: &Graphics, font: Option<&Font>) {
     draw_credit_line(gfx, font);
 }
 
-/// Draws the "By Joel Buchheim-Moore" credit line, centered near the bottom
-/// of the title screen, at the font's natural (unscaled) size.
 fn draw_credit_line(gfx: &Graphics, font: Option<&Font>) {
     let label = "By Joel Buchheim-Moore";
     let text_w = gfx.get_text_width(label, font, 0).unwrap_or(150);

@@ -1,0 +1,42 @@
+[package]
+name = "fifteen-flipper"
+version = "0.1.0"
+edition = "2024"
+description = "Fifteen puzzle for the Flipper Zero"
+license.workspace = true
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+
+[[bin]]
+name = "fifteen-flipper"
+bench = false
+test = false
+
+[dependencies]
+flipperzero = { version = "0.16.0", features = ["alloc"] }
+flipperzero-alloc = { version = "0.16.0" }
+flipperzero-sys = { version = "0.16.0" }
+flipperzero-rt = { version = "0.16.0" }
+# `rand_core = "0.6"` is what flipperzero::furi::rng::HwRng implements (its
+# RngCore trait) - needed to actually call HwRng's methods.
+# `rand = "0.10.2"` matches what `fifteen`'s Board::shuffled needs (its `Rng`
+# trait, built on a newer/incompatible rand_core generation). Both live in the
+# dependency graph at once under different crate names ("rand_core" vs
+# "rand"), so there's no naming collision - see the FlipperRng adapter in
+# main.rs that bridges the two.
+rand_core = "0.6"
+# default-features = false: rand's defaults pull in getrandom/std_rng/sys_rng,
+# which need `std` - not available here. We only need the `Rng`/`TryRng`
+# trait definitions themselves (see the FlipperRng adapter in main.rs), same
+# as how the root fifteen crate depends on rand.
+rand = { version = "0.10.2", default-features = false }
+fifteen = { path = ".." }
+
+embedded-hal = { version = "1.0.0-rc.1"}
+embedded-hal-0 = { package = "embedded-hal", version = "0.2.7", features = [
+    "unproven"
+]}
+embedded-graphics-core = { version = "0.4.0" }
+embedded-graphics = "0.8.0"

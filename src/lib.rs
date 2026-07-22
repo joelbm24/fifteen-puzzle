@@ -1,6 +1,3 @@
-// `no_std` except under `cargo test`, since the test harness itself needs
-// `std` — this keeps the crate embedded-friendly for real builds (GBA,
-// Playdate) without complicating how tests are run.
 #![cfg_attr(not(test), no_std)]
 
 extern crate alloc;
@@ -107,11 +104,8 @@ impl Board {
     }
 
     /// Produces a uniformly random *solvable* shuffled board, using the
-    /// caller-supplied RNG. Taking `rng` as a parameter (rather than pulling
-    /// from `rand::rng()` internally) keeps this crate `no_std`-friendly:
-    /// std-based platforms can pass `&mut rand::rng()`, while embedded
-    /// targets without OS entropy can pass a `SmallRng` seeded from their own
-    /// hardware source.
+    /// caller-supplied RNG (kept generic so `no_std` targets can pass their
+    /// own source instead of `rand::rng()`).
     pub fn shuffled(rng: &mut impl Rng) -> Self {
         let mut tiles: [u8; 16] = core::array::from_fn(|i| if i < 15 { (i + 1) as u8 } else { 0 });
         tiles.shuffle(rng);
@@ -129,6 +123,8 @@ impl Board {
         board
     }
 
+    /// A 15-puzzle arrangement is solvable iff permutation parity matches the
+    /// blank's taxicab distance parity from its solved position.
     pub fn is_solvable(&self) -> bool {
         let mut visited = [false; 16];
         let mut cycles = 0;
@@ -140,7 +136,7 @@ impl Board {
             let mut i = start;
             while !visited[i] {
                 visited[i] = true;
-                i = (self.tiles[i] as usize + 15) % 16; // (tile - 1) mod 16
+                i = (self.tiles[i] as usize + 15) % 16;
             }
         }
         let permutation_is_odd = (16 - cycles) % 2 == 1;
@@ -208,7 +204,7 @@ mod tests {
     #[test]
     fn classic_14_15_swap_is_unsolvable() {
         let mut board = Board::new();
-        board.tiles.swap(13, 14); // positions of values 14 and 15
+        board.tiles.swap(13, 14);
         assert!(!board.is_solvable());
     }
 
